@@ -184,8 +184,8 @@ const AddWine = ({ onClose, onSave }) => {
     if(!f.name||!f.producer) return;
     setBusy(true); setStatus({msg:"Pesquisando vinho e produtor...",ok:false});
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      const res = await fetch("/api/claude",{
+        method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200,
           messages:[{ role:"user", content:`Voce e um sommelier e especialista em vinhos. Para o vinho "${f.name}" do produtor "${f.producer}" safra ${f.vintage}, retorne APENAS JSON valido sem markdown com estes campos:
 {
