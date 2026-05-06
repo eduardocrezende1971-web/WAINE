@@ -4,6 +4,20 @@ const G = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garam
 
 const C = { bg:"#F7F3EE", card:"#FFFFFF", border:"rgba(0,0,0,0.07)", text:"#1A1410", sub:"#6B5F54", muted:"#A89B8E", red:"#8B1F2A", redL:"rgba(139,31,42,0.08)", gold:"#9A6B2E", goldL:"rgba(154,107,46,0.1)", green:"#2A6040", greenL:"rgba(42,96,64,0.08)" };
 
+// ── Cloudinary Upload ──────────────────────────────────────────────────────────
+const uploadToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "waine_uploads");
+  const res = await fetch("https://api.cloudinary.com/v1_1/dfuqx38mo/image/upload", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  if (!data.secure_url) throw new Error("Upload falhou");
+  return data.secure_url;
+};
+
 // ── Storage via Netlify Blobs ──────────────────────────────────────────────────
 const loadFromServer = async () => {
   try {
@@ -15,9 +29,8 @@ const loadFromServer = async () => {
 
 const saveToServer = async (data) => {
   try {
-    // Save without photos to keep payload small
     const payload = {
-      wines: data.wines?.map(w => ({...w, photos:[]})),
+      wines: data.wines,
       vineyard: data.vineyard,
       memories: data.memories,
     };
@@ -29,11 +42,6 @@ const saveToServer = async (data) => {
   } catch {}
 };
 
-// Photos stay in localStorage (base64 too large for server)
-const LS_PHOTOS = "waine_photos_v1";
-const loadPhotos = () => { try { return JSON.parse(localStorage.getItem(LS_PHOTOS)) || {}; } catch { return {}; } };
-const savePhotos = (p) => { try { localStorage.setItem(LS_PHOTOS, JSON.stringify(p)); } catch {} };
-
 const WINES0 = [];
 const VINHO0 = [];
 const MEM0 = [];
@@ -41,8 +49,6 @@ const MEM0 = [];
 const sAccent = s => s==="Branco"?C.gold:s==="Rose"?"#B05070":s==="Espumante"?"#2A7060":C.red;
 const sLabel  = s => s==="Branco"?C.goldL:s==="Rose"?"rgba(176,80,112,0.1)":s==="Espumante"?"rgba(42,112,96,0.1)":C.redL;
 const mColor  = m => m==="Epico"?C.red:m==="Familia"?"#B05070":m==="Contemplativo"?C.gold:m==="Inesperado"?C.green:C.sub;
-
-const readPhoto = file => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); });
 
 // ── Photo Uploader ─────────────────────────────────────────────────────────────
 const PhotoUploader = ({ photos, onChange, max=2 }) => {
@@ -52,8 +58,8 @@ const PhotoUploader = ({ photos, onChange, max=2 }) => {
   const handle = async e => {
     const file = e.target.files[0]; if (!file) return;
     setBusy(true); setErr("");
-    try { onChange([...photos, await readPhoto(file)].slice(0,max)); }
-    catch { setErr("Erro ao carregar foto."); }
+    try { onChange([...photos, await uploadToCloudinary(file)].slice(0,max)); }
+    catch { setErr("Erro ao fazer upload."); }
     setBusy(false); e.target.value="";
   };
   return (
@@ -69,7 +75,7 @@ const PhotoUploader = ({ photos, onChange, max=2 }) => {
         {photos.length<max&&(
           <div onClick={()=>!busy&&ref.current.click()} style={{width:90,height:120,border:`2px dashed ${busy?C.gold:C.border}`,borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:busy?"wait":"pointer",gap:6,background:busy?C.goldL:"transparent"}}>
             <span style={{fontSize:24}}>{busy?"...":"📷"}</span>
-            <span style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted}}>{busy?"CARREGANDO":"FOTO"}</span>
+            <span style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted}}>{busy?"ENVIANDO":"FOTO"}</span>
           </div>
         )}
       </div>
@@ -88,7 +94,7 @@ const Qty = ({ value, onChange, accent }) => (
   </div>
 );
 
-// ── Field — defined OUTSIDE components to prevent remount ─────────────────────
+// ── Field ──────────────────────────────────────────────────────────────────────
 const Field = ({ label, value, onChange, type="text", placeholder="" }) => (
   <div style={{marginBottom:16}}>
     <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
@@ -521,19 +527,12 @@ export default function App() {
   const [vineyard, setVineyard] = useState(VINHO0);
   const [memories, setMemories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const photosRef = useState(loadPhotos())[0];
 
   // Load from server on mount
   useEffect(() => {
     loadFromServer().then(data => {
       if (data) {
-        // Merge server data with local photos
-        const photos = loadPhotos();
-        const winesWithPhotos = (data.wines||[]).map(w => ({
-          ...w,
-          photos: photos[w.id] || []
-        }));
-        setWines(winesWithPhotos);
+        setWines(data.wines || []);
         if (data.vineyard?.length) setVineyard(data.vineyard);
         if (data.memories?.length) setMemories(data.memories);
       }
@@ -545,11 +544,8 @@ export default function App() {
   useEffect(() => {
     if (loading) return;
     saveToServer({wines, vineyard, memories});
-    // Save photos locally
-    const photos = {};
-    wines.forEach(w => { if (w.photos?.length) photos[w.id] = w.photos; });
-    savePhotos(photos);
   }, [wines, vineyard, memories, loading]);
+
   const tabs = [{id:"adega",icon:"🍷",label:"Adega"},{id:"vinhedo",icon:"🌿",label:"Vinhedo"},{id:"memorias",icon:"✦",label:"Memorias"}];
 
   if (loading) return (
