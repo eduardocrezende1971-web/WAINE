@@ -837,7 +837,7 @@ export default function App() {
   return (
     <div style={{maxWidth:430,margin:"0 auto",height:"100vh",background:C.bg,display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
       <style>{G}</style>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{display:none}input,textarea,select{-webkit-appearance:none}::placeholder{color:#B0A090}`}</style>
+      <style>{`*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{display:none}input,textarea,select{-webkit-appearance:none}::placeholder{color:#B0A090}body{background:#F7F3EE}`}</style>
       <div style={{padding:"14px 20px 12px",borderBottom:`1px solid ${C.border}`,background:C.card,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"baseline",gap:8}}>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,letterSpacing:"0.16em",color:C.text}}>W.AI.NE</span>
@@ -850,7 +850,7 @@ export default function App() {
         {tab==="mapa"&&<TabMapa wines={wines} />}
         {tab==="memorias"&&<TabMemorias wines={wines} setWines={setWines} />}
       </div>
-      <div style={{position:"absolute",bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,padding:"10px 0 22px",display:"flex",justifyContent:"space-around",zIndex:40,boxShadow:"0 -4px 20px rgba(0,0,0,0.06)"}}>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,paddingTop:"10px",paddingBottom:"calc(14px + env(safe-area-inset-bottom))",display:"flex",justifyContent:"space-around",zIndex:40,boxShadow:"0 -4px 20px rgba(0,0,0,0.06)"}}>
         {tabs.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
             <span style={{fontSize:20,color:tab===t.id?C.red:C.muted}}>{t.icon}</span>
