@@ -2,9 +2,8 @@ import { useState, useRef, useEffect } from "react";
 
 const G = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap');`;
 
-const C = { bg:"#F7F3EE", card:"#FFFFFF", border:"rgba(0,0,0,0.07)", text:"#1A1410", sub:"#6B5F54", muted:"#A89B8E", red:"#8B1F2A", redL:"rgba(139,31,42,0.08)", gold:"#9A6B2E", goldL:"rgba(154,107,46,0.1)", green:"#2A6040", greenL:"rgba(42,96,64,0.08)" };
+const C = { bg:"#F7F3EE", card:"#FFFFFF", border:"rgba(0,0,0,0.07)", text:"#1A1410", sub:"#6B5F54", muted:"#A89B8E", red:"#8B1F2A", redL:"rgba(139,31,42,0.08)", gold:"#9A6B2E", goldL:"rgba(154,107,46,0.1)", green:"#2A6040", greenL:"rgba(42,96,64,0.08)", sepia:"#7A5C3A", sepiaL:"rgba(122,92,58,0.08)" };
 
-// ── Cloudinary Upload ──────────────────────────────────────────────────────────
 const uploadToCloudinary = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -15,7 +14,6 @@ const uploadToCloudinary = async (file) => {
   return data.secure_url;
 };
 
-// ── Storage via Netlify Blobs ──────────────────────────────────────────────────
 const loadFromServer = async () => {
   try { const res = await fetch("/api/save"); if (!res.ok) return null; return await res.json(); }
   catch { return null; }
@@ -29,6 +27,13 @@ const VINHO0 = [];
 const sAccent = s => s==="Branco"?C.gold:s==="Rose"?"#B05070":s==="Espumante"?"#2A7060":C.red;
 const sLabel  = s => s==="Branco"?C.goldL:s==="Rose"?"rgba(176,80,112,0.1)":s==="Espumante"?"rgba(42,112,96,0.1)":C.redL;
 const mColor  = m => m==="Epico"?C.red:m==="Familia"?"#B05070":m==="Contemplativo"?C.gold:m==="Inesperado"?C.green:C.sub;
+
+const getCastaFiltro = (grapes) => {
+  if (!grapes) return null;
+  const lista = grapes.split(",").map(g=>g.trim()).filter(Boolean);
+  if (lista.length > 1) return "Blend";
+  return lista[0] || null;
+};
 
 // ── Photo Uploader ─────────────────────────────────────────────────────────────
 const PhotoUploader = ({ photos, onChange, max=2 }) => {
@@ -99,7 +104,6 @@ const NotasTopicos = ({ notas }) => {
 const VoiceButton = ({ onResult }) => {
   const [ouvindo, setOuvindo] = useState(false);
   const recRef = useRef(null);
-
   const toggle = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Seu browser não suporta reconhecimento de voz."); return; }
@@ -115,7 +119,6 @@ const VoiceButton = ({ onResult }) => {
     rec.start();
     setOuvindo(true);
   };
-
   return (
     <button onClick={toggle} title={ouvindo?"Parar gravação":"Falar em português"}
       style={{width:36,height:36,borderRadius:"50%",border:`1px solid ${ouvindo?C.red:C.border}`,background:ouvindo?C.redL:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
@@ -133,6 +136,7 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
   const [aiMsg, setAiMsg] = useState("");
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const save = () => { onUpdate(f); setEditing(false); setAiPrompt(""); setAiMsg(""); };
+  const isDegustado = w.bottles === 0;
 
   const corrigirComIA = async () => {
     if (!aiPrompt.trim()) return;
@@ -171,6 +175,7 @@ Inclua apenas os campos que precisam mudar.` }]
 
   const notasObj = (typeof f.notas === "object" && f.notas) ? f.notas : { aromas:"", paladar:"", estrutura:"", guarda:"", harmonizacao:"" };
   const labelsNotas = { aromas:"🌸 Aromas", paladar:"👄 Paladar", estrutura:"⚖️ Estrutura", guarda:"⏳ Guarda", harmonizacao:"🍽️ Harmonização" };
+  const accentColor = isDegustado ? C.sepia : (w.accent||C.red);
 
   return (
     <div style={{position:"fixed",inset:0,background:C.bg,zIndex:50,overflowY:"auto"}}>
@@ -179,41 +184,39 @@ Inclua apenas os campos que precisam mudar.` }]
         <button onClick={()=>editing?save():setEditing(true)} style={{background:editing?C.red:"none",border:`1px solid ${editing?C.red:C.border}`,borderRadius:4,padding:"7px 18px",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.08em",color:editing?"#fff":C.sub,cursor:"pointer"}}>
           {editing?"SALVAR":"EDITAR"}
         </button>
-        {!editing&&<button onClick={()=>{if(window.confirm("Apagar este vinho da adega?"))onDelete(w.id);}} style={{background:"none",border:"1px solid rgba(139,31,42,0.3)",borderRadius:4,padding:"7px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.red,cursor:"pointer"}}>🗑</button>}
+        {!editing&&<button onClick={()=>{if(window.confirm("Apagar este vinho?"))onDelete(w.id);}} style={{background:"none",border:"1px solid rgba(139,31,42,0.3)",borderRadius:4,padding:"7px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.red,cursor:"pointer"}}>🗑</button>}
       </div>
       <div style={{padding:"28px 20px 100px"}}>
-
-        {/* Fotos */}
+        {isDegustado&&(
+          <div style={{background:C.sepiaL,border:`1px solid ${C.sepia}30`,borderRadius:8,padding:"10px 16px",marginBottom:20,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:16}}>🍷</span>
+            <span style={{fontFamily:"'DM Sans'",fontSize:11,color:C.sepia,letterSpacing:"0.08em"}}>DEGUSTADO · Memória preservada</span>
+          </div>
+        )}
         {editing
           ? <PhotoUploader photos={f.photos||[]} onChange={v=>set("photos",v)} />
-          : f.photos?.length>0&&<div style={{display:"flex",gap:12,marginBottom:28}}>{f.photos.map((url,i)=><img key={i} src={url} style={{width:130,height:170,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}} />)}</div>
+          : f.photos?.length>0&&<div style={{display:"flex",gap:12,marginBottom:28}}>{f.photos.map((url,i)=><img key={i} src={url} style={{width:130,height:170,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,boxShadow:"0 4px 16px rgba(0,0,0,0.1)",filter:isDegustado?"sepia(30%)":"none"}} />)}</div>
         }
-
-        <div style={{width:28,height:3,background:w.accent||C.red,marginBottom:20,borderRadius:1}} />
+        <div style={{width:28,height:3,background:accentColor,marginBottom:20,borderRadius:1}} />
         <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:8}}>{w.style} · {w.country}</div>
-
         {editing
           ? <input value={f.name} onChange={e=>set("name",e.target.value)} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,color:C.text,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none",marginBottom:8,boxSizing:"border-box"}} />
           : <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:600,color:C.text,lineHeight:1.1,marginBottom:6}}>{w.name}</div>
         }
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,marginBottom:28}}>{w.producer}, {w.vintage}</div>
-
-        {/* Rating + Garrafas */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:32}}>
           <div style={{display:"flex",alignItems:"baseline",gap:6}}>
             {editing
-              ? <input type="number" min={80} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:w.accent||C.red,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
-              : <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:60,color:w.accent||C.red,fontWeight:300,lineHeight:1}}>{w.rating}</div>
+              ? <input type="number" min={80} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:accentColor,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
+              : <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:60,color:accentColor,fontWeight:300,lineHeight:1}}>{w.rating}</div>
             }
             <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted}}>/100</div>
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>GARRAFAS</div>
-            <Qty value={editing?f.bottles:w.bottles} onChange={v=>{set("bottles",v);if(!editing)onUpdate({...w,bottles:v});}} accent={w.accent||C.red} />
+            <Qty value={editing?f.bottles:w.bottles} onChange={v=>{set("bottles",v);if(!editing)onUpdate({...w,bottles:v});}} accent={accentColor} />
           </div>
         </div>
-
-        {/* Grid info */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:C.border,marginBottom:32,borderRadius:4,overflow:"hidden"}}>
           {[["REGIÃO","region"],["PAÍS","country"],["UVAS","grapes"],["ADQUIRIDO","date"]].map(([l,k])=>(
             <div key={k} style={{background:C.card,padding:"14px 16px"}}>
@@ -225,16 +228,12 @@ Inclua apenas os campos que precisam mudar.` }]
             </div>
           ))}
         </div>
-
-        {/* Minha Memória */}
         <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>MINHA MEMÓRIA</div>
         {editing
           ? <textarea value={f.memory||""} onChange={e=>set("memory",e.target.value)} rows={4} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
           : w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontStyle:"italic",color:C.sub,lineHeight:1.85,marginBottom:12}}>"{w.memory}"</div>
         }
         {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginTop:8,marginBottom:32}}>📍 {w.location}</div>}
-
-        {/* O Produtor */}
         {(editing?f.historia:w.historia)&&(
           <div style={{marginBottom:20,padding:"18px",background:"#F9F6F2",borderRadius:8,border:"1px solid rgba(154,107,46,0.15)"}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>O PRODUTOR</div>
@@ -244,8 +243,6 @@ Inclua apenas os campos que precisam mudar.` }]
             }
           </div>
         )}
-
-        {/* O Vinho — tópicos */}
         {(editing?f.notas:w.notas)&&(
           <div style={{marginBottom:20,padding:"18px",background:"#F9F6F2",borderRadius:8,border:"1px solid rgba(139,31,42,0.12)"}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.red,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>O VINHO</div>
@@ -262,13 +259,11 @@ Inclua apenas os campos que precisam mudar.` }]
             }
           </div>
         )}
-
-        {/* Corrigir com IA — só no modo editar */}
         {editing&&(
           <div style={{marginBottom:20,padding:"16px",background:C.redL,borderRadius:8,border:`1px solid rgba(139,31,42,0.15)`}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.red,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>✦ CORRIGIR COM IA</div>
             <textarea value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} rows={2}
-              placeholder='ex: "Este vinho é da África do Sul, não da França. Reescreva para um Cabernet de Stellenbosch."'
+              placeholder='ex: "Este vinho é da África do Sul, não da França."'
               style={{width:"100%",fontFamily:"'DM Sans'",fontSize:13,color:C.text,border:`1px solid rgba(139,31,42,0.2)`,borderRadius:4,background:"#fff",outline:"none",padding:"10px 12px",resize:"none",boxSizing:"border-box",marginBottom:10}} />
             <button onClick={corrigirComIA} disabled={aibusy||!aiPrompt.trim()} style={{width:"100%",padding:"10px",background:C.red,border:"none",borderRadius:4,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",opacity:!aiPrompt.trim()?0.5:1}}>
               {aibusy?"Corrigindo...":"Corrigir com IA"}
@@ -298,7 +293,7 @@ const AddWine = ({ onClose, onSave }) => {
 {
   "region": "região vinícola",
   "country": "país em português",
-  "grapes": "uvas separadas por vírgula",
+  "grapes": "uvas separadas por vírgula — se for varietal coloque apenas uma uva, se for blend coloque todas separadas por vírgula",
   "style": "Tinto|Branco|Rose|Espumante|Sobremesa",
   "accent": "#hexcolor escuro da cor real do vinho",
   "historia": "Parágrafo rico de 3-4 frases sobre história e filosofia do produtor. Português, tom sofisticado.",
@@ -398,29 +393,56 @@ const AddWine = ({ onClose, onSave }) => {
   );
 };
 
-// ── Tab Adega — tela filtros + lista com fotos ─────────────────────────────────
+// ── Tab Adega ──────────────────────────────────────────────────────────────────
 const TabAdega = ({ wines, setWines }) => {
   const [detail, setDetail] = useState(null);
   const [adding, setAdding] = useState(false);
-  // null = tela de filtros, string = filtro selecionado
   const [filtroAtivo, setFiltroAtivo] = useState(null);
   const [search, setSearch] = useState("");
   const update = u => setWines(ws=>ws.map(w=>w.id===u.id?u:w));
 
   const tipos = ["Tinto","Branco","Rose","Espumante","Sobremesa"];
-  const castas = [...new Set(wines.flatMap(w=>(w.grapes||"").split(",").map(g=>g.trim()).filter(Boolean)))].sort();
 
-  const winesFiltrados = filtroAtivo ? wines.filter(w=>{
-    if(filtroAtivo==="Especiais") return w.special;
-    if(tipos.includes(filtroAtivo)) return w.style===filtroAtivo;
-    // casta
-    return (w.grapes||"").split(",").map(g=>g.trim()).some(g=>g.toLowerCase()===filtroAtivo.toLowerCase());
-  }).filter(w=>{
-    const q=search.toLowerCase();
-    return !q||w.name.toLowerCase().includes(q)||w.producer.toLowerCase().includes(q);
-  }) : [];
+  // Vinhos ativos (estoque > 0) e degustados (estoque = 0)
+  const winesAtivos = wines.filter(w => w.bottles > 0);
+  const winesDegustados = wines.filter(w => w.bottles === 0);
 
-  const total = wines.reduce((a,b)=>a+b.bottles,0);
+  // Castas e países apenas dos ativos
+  const filtroCasta = winesAtivos.reduce((acc, w) => {
+    const cf = getCastaFiltro(w.grapes);
+    if (cf && !acc.includes(cf)) acc.push(cf);
+    return acc;
+  }, []).sort((a,b) => {
+    if (a==="Blend") return -1;
+    if (b==="Blend") return 1;
+    return a.localeCompare(b);
+  });
+
+  const filtrosPais = [...new Set(winesAtivos.map(w=>w.country).filter(Boolean))].sort();
+
+  // Lógica de filtro corrigida
+  const winesFiltrados = (() => {
+    if (!filtroAtivo) return [];
+    if (filtroAtivo === "Degustados") return winesDegustados.filter(w => {
+      const q = search.toLowerCase();
+      return !q || w.name.toLowerCase().includes(q) || w.producer.toLowerCase().includes(q);
+    });
+    const base = filtroAtivo === "Todos" ? winesAtivos
+      : filtroAtivo === "Especiais" ? winesAtivos.filter(w=>w.special)
+      : tipos.includes(filtroAtivo) ? winesAtivos.filter(w=>w.style===filtroAtivo)
+      : filtroCasta.includes(filtroAtivo) ? winesAtivos.filter(w=>getCastaFiltro(w.grapes)===filtroAtivo)
+      : filtrosPais.includes(filtroAtivo) ? winesAtivos.filter(w=>w.country===filtroAtivo)
+      : winesAtivos;
+    return base.filter(w => {
+      const q = search.toLowerCase();
+      return !q || w.name.toLowerCase().includes(q) || w.producer.toLowerCase().includes(q);
+    });
+  })();
+
+  const total = winesAtivos.reduce((a,b)=>a+b.bottles,0);
+  const contaTipo = (t) => t==="Especiais" ? winesAtivos.filter(w=>w.special).length : winesAtivos.filter(w=>w.style===t).length;
+  const contaCasta = (c) => winesAtivos.filter(w=>getCastaFiltro(w.grapes)===c).length;
+  const contaPais = (p) => winesAtivos.filter(w=>w.country===p).length;
 
   if(detail){ const live=wines.find(w=>w.id===detail.id)||detail;
     return <WineDetail w={live} onBack={()=>setDetail(null)} onUpdate={update} onDelete={id=>{setWines(ws=>ws.filter(w=>w.id!==id));setDetail(null);}} />; }
@@ -429,27 +451,27 @@ const TabAdega = ({ wines, setWines }) => {
     <div style={{flex:1,overflowY:"auto",paddingBottom:90}}>
       {adding&&<AddWine onClose={()=>setAdding(false)} onSave={w=>{setWines(p=>[...p,w]);setAdding(false);}} />}
 
-      {/* Header */}
       <div style={{padding:"24px 20px 0"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
           <div>
             <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:4}}>ADEGA</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,color:C.text,lineHeight:1}}>
-              {wines.length} <span style={{fontWeight:300,fontSize:20,color:C.sub}}>rótulos</span>
+              {winesAtivos.length} <span style={{fontWeight:300,fontSize:20,color:C.sub}}>rótulos</span>
             </div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:2}}>{total} garrafas</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:2}}>{total} garrafas · {winesDegustados.length} degustados</div>
           </div>
           <button onClick={()=>setAdding(true)} style={{background:C.red,border:"none",borderRadius:"50%",width:46,height:46,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:24,boxShadow:"0 2px 12px rgba(139,31,42,0.3)"}}>+</button>
         </div>
       </div>
 
-      {/* Se há filtro ativo: barra de busca + lista com fotos */}
       {filtroAtivo ? (
         <div>
           <div style={{padding:"0 20px",marginBottom:12}}>
             <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:12}}>
               <button onClick={()=>{setFiltroAtivo(null);setSearch("");}} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:20,padding:"6px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.sub,cursor:"pointer"}}>← Filtros</button>
-              <span style={{fontFamily:"'DM Sans'",fontSize:11,color:C.red,background:C.redL,padding:"6px 14px",borderRadius:20,letterSpacing:"0.06em"}}>{filtroAtivo} · {winesFiltrados.length}</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:11,color:filtroAtivo==="Degustados"?C.sepia:C.red,background:filtroAtivo==="Degustados"?C.sepiaL:C.redL,padding:"6px 14px",borderRadius:20,letterSpacing:"0.06em"}}>
+                {filtroAtivo} · {winesFiltrados.length}
+              </span>
             </div>
             <div style={{position:"relative"}}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar na seleção..."
@@ -457,98 +479,107 @@ const TabAdega = ({ wines, setWines }) => {
               <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:C.muted,fontSize:13}}>🔍</span>
             </div>
           </div>
-
-          {/* Lista com fotos */}
           <div style={{padding:"0 20px"}}>
             {winesFiltrados.length===0
               ? <div style={{textAlign:"center",padding:"60px 0",fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>Nenhum vinho encontrado</div>
-              : winesFiltrados.map(w=>(
-                <div key={w.id} onClick={()=>setDetail(w)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,marginBottom:10,cursor:"pointer",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
-                  {w.photos?.[0]&&(
-                    <div style={{position:"relative",height:160,overflow:"hidden"}}>
-                      <img src={w.photos[0]} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                      <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.6) 100%)"}} />
-                      <div style={{position:"absolute",bottom:12,left:16,right:16,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-                        <div>
-                          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#fff",lineHeight:1.2}}>{w.name}</div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.75)"}}>{w.producer} · {w.vintage}</div>
+              : winesFiltrados.map(w=>{
+                const isDeg = w.bottles === 0;
+                return (
+                  <div key={w.id} onClick={()=>setDetail(w)} style={{background:C.card,border:`1px solid ${isDeg?C.sepia+"30":C.border}`,borderRadius:8,marginBottom:10,cursor:"pointer",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+                    {w.photos?.[0]&&(
+                      <div style={{position:"relative",height:160,overflow:"hidden"}}>
+                        <img src={w.photos[0]} style={{width:"100%",height:"100%",objectFit:"cover",filter:isDeg?"sepia(40%)":"none"}} />
+                        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.6) 100%)"}} />
+                        <div style={{position:"absolute",bottom:12,left:16,right:16,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+                          <div>
+                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:600,color:"#fff",lineHeight:1.2}}>{w.name}</div>
+                            <div style={{fontFamily:"'DM Sans'",fontSize:11,color:"rgba(255,255,255,0.75)"}}>{w.producer} · {w.vintage}</div>
+                          </div>
+                          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,color:"#fff",fontWeight:300}}>{w.rating}</div>
                         </div>
-                        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,color:"#fff",fontWeight:300}}>{w.rating}</div>
                       </div>
-                    </div>
-                  )}
-                  <div style={{padding:"14px 16px"}}>
-                    {!w.photos?.[0]&&(
-                      <>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
-                          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:C.text,flex:1,paddingRight:8}}>{w.name}</div>
-                          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:w.accent||C.red,fontWeight:400}}>{w.rating}</div>
-                        </div>
-                        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:10}}>{w.producer} · {w.vintage}</div>
-                      </>
                     )}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                        <div style={{width:3,height:14,background:w.accent||C.red,borderRadius:1,opacity:0.7}} />
-                        <span style={{fontFamily:"'DM Sans'",fontSize:10,color:sAccent(w.style),background:sLabel(w.style),padding:"3px 9px",borderRadius:20,letterSpacing:"0.06em",textTransform:"uppercase"}}>{w.style}</span>
-                        {w.special&&<span style={{color:C.gold,fontSize:12}}>★</span>}
+                    <div style={{padding:"14px 16px"}}>
+                      {!w.photos?.[0]&&(
+                        <>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
+                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:C.text,flex:1,paddingRight:8}}>{w.name}</div>
+                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:isDeg?C.sepia:(w.accent||C.red),fontWeight:400}}>{w.rating}</div>
+                          </div>
+                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:10}}>{w.producer} · {w.vintage}</div>
+                        </>
+                      )}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          <div style={{width:3,height:14,background:isDeg?C.sepia:(w.accent||C.red),borderRadius:1,opacity:0.7}} />
+                          <span style={{fontFamily:"'DM Sans'",fontSize:10,color:isDeg?C.sepia:sAccent(w.style),background:isDeg?C.sepiaL:sLabel(w.style),padding:"3px 9px",borderRadius:20,letterSpacing:"0.06em",textTransform:"uppercase"}}>{isDeg?"Degustado":w.style}</span>
+                          {w.special&&<span style={{color:C.gold,fontSize:12}}>★</span>}
+                        </div>
+                        {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={w.accent||C.red} />}
                       </div>
-                      <Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={w.accent||C.red} />
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             }
           </div>
         </div>
       ) : (
-        /* Tela de filtros */
         <div style={{padding:"0 20px"}}>
-          {/* Por tipo */}
+
+          {/* 1 — Por tipo */}
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>POR TIPO</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:28}}>
             {[
-              {label:"Tinto",emoji:"🍷",color:C.red,bg:C.redL},
-              {label:"Branco",emoji:"🥂",color:C.gold,bg:C.goldL},
-              {label:"Rose",emoji:"🌸",color:"#B05070",bg:"rgba(176,80,112,0.08)"},
-              {label:"Espumante",emoji:"✨",color:"#2A7060",bg:"rgba(42,112,96,0.08)"},
-              {label:"Especiais",emoji:"★",color:C.gold,bg:C.goldL},
-            ].map(({label,emoji,color,bg})=>{
-              const count = label==="Especiais" ? wines.filter(w=>w.special).length : wines.filter(w=>w.style===label).length;
+              {label:"Tinto", cor:C.red, bg:C.redL},
+              {label:"Branco", cor:C.gold, bg:C.goldL},
+              {label:"Rose", cor:"#B05070", bg:"rgba(176,80,112,0.08)"},
+              {label:"Espumante", cor:"#2A7060", bg:"rgba(42,112,96,0.08)"},
+              {label:"Especiais", cor:C.gold, bg:C.goldL},
+              {label:"Todos", cor:C.sub, bg:C.card},
+              {label:"Degustados", cor:C.sepia, bg:C.sepiaL},
+            ].map(({label,cor,bg})=>{
+              const count = label==="Todos" ? winesAtivos.length
+                : label==="Degustados" ? winesDegustados.length
+                : contaTipo(label);
               return (
-                <button key={label} onClick={()=>setFiltroAtivo(label)} style={{background:bg,border:`1px solid ${color}20`,borderRadius:10,padding:"18px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",textAlign:"left"}}>
-                  <span style={{fontSize:24}}>{emoji}</span>
-                  <div>
-                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:color}}>{label}</div>
-                    <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:2}}>{count} rótulo{count!==1?"s":""}</div>
-                  </div>
+                <button key={label} onClick={()=>setFiltroAtivo(label)}
+                  style={{background:bg,border:`1px solid ${cor}25`,borderRadius:10,padding:"16px 18px",display:"flex",flexDirection:"column",cursor:"pointer",textAlign:"left",gap:4}}>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:600,color:cor}}>{label}</div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted}}>{count} rótulo{count!==1?"s":""}</div>
                 </button>
               );
             })}
-            <button onClick={()=>setFiltroAtivo("__todos__")} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"18px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",textAlign:"left"}}
-              onClick={()=>{setFiltroAtivo("__todos__")}}>
-              <span style={{fontSize:24}}>📋</span>
-              <div>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:C.text}}>Todos</div>
-                <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:2}}>{wines.length} rótulos</div>
-              </div>
-            </button>
           </div>
 
-          {/* Por casta */}
-          {castas.length>0&&(
+          {/* 2 — Por casta */}
+          {filtroCasta.length>0&&(
             <>
               <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>POR CASTA</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {castas.map(c=>{
-                  const count = wines.filter(w=>(w.grapes||"").split(",").map(g=>g.trim()).some(g=>g.toLowerCase()===c.toLowerCase())).length;
-                  return (
-                    <button key={c} onClick={()=>setFiltroAtivo(c)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:C.text}}>{c}</span>
-                      <span style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted}}>{count} rótulo{count!==1?"s":""}</span>
-                    </button>
-                  );
-                })}
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:28}}>
+                {filtroCasta.map(c=>(
+                  <button key={c} onClick={()=>setFiltroAtivo(c)}
+                    style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:C.text,fontStyle:c==="Blend"?"italic":"normal"}}>{c}</span>
+                    <span style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted}}>{contaCasta(c)} rótulo{contaCasta(c)!==1?"s":""}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 3 — Por país */}
+          {filtrosPais.length>0&&(
+            <>
+              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>POR PAÍS</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                {filtrosPais.map(p=>(
+                  <button key={p} onClick={()=>setFiltroAtivo(p)}
+                    style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:C.text}}>{p}</span>
+                    <span style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted}}>{contaPais(p)} rótulo{contaPais(p)!==1?"s":""}</span>
+                  </button>
+                ))}
               </div>
             </>
           )}
@@ -628,7 +659,6 @@ const TabMemorias = ({ memories, setMemories }) => {
     setAdding(false); setEditingId(null);
   };
 
-  // Campo de texto com voz em português
   const CampoVoz = ({ label, valor, onMudar, linhas=3, placeholder="" }) => (
     <div style={{marginBottom:14}}>
       <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
@@ -647,21 +677,14 @@ const TabMemorias = ({ memories, setMemories }) => {
           <div style={{background:C.card,borderRadius:"16px 16px 0 0",padding:"24px 20px 48px",maxHeight:"92vh",overflowY:"auto"}}>
             <div style={{width:36,height:3,background:C.border,borderRadius:2,margin:"0 auto 24px"}} />
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,color:C.text,marginBottom:20}}>{editingId?"Editar Memória":"Nova Memória"}</div>
-
-            {/* Campos simples */}
             {[["TÍTULO","title",""],["DATA","date","ex: Mai 2026"],["LOCAL","location","ex: Franschhoek"]].map(([l,k,ph])=>(
               <div key={k} style={{marginBottom:14}}>
                 <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>{l}</div>
                 <input value={f[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,padding:"11px 13px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
               </div>
             ))}
-
-            {/* Narrativa com voz */}
             <CampoVoz label="NARRATIVA" valor={f.text} onMudar={v=>set("text",v)} linhas={3} placeholder="O que aconteceu, quem estava, o que foi bebido..." />
-
-            {/* Impressões com voz */}
             <CampoVoz label="IMPRESSÕES PÓS-ABERTURA" valor={f.impressoes||""} onMudar={v=>set("impressoes",v)} linhas={3} placeholder="Como evoluiu na taça, surpresas, notas que surgiram depois..." />
-
             <div style={{marginBottom:24}}>
               <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>MOOD</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
