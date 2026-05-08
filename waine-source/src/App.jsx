@@ -75,7 +75,7 @@ const Capa = ({ onEntrar }) => (
     <div style={{position:"relative",flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:0,width:"100%",padding:"0 40px"}}>
 
       {/* Símbolo */}
-      <img src="/icon.png" style={{width:110,height:110,borderRadius:20,display:"block"}} />
+      <img src="/icone.png" style={{width:110,height:110,borderRadius:20,display:"block"}} />
 
       {/* Linha decorativa */}
       <div style={{width:1,height:24,background:"rgba(201,164,110,0.4)",marginBottom:20}} />
@@ -858,7 +858,7 @@ export default function App() {
   if(loading) return (
     <div style={{maxWidth:430,margin:"0 auto",height:"100vh",background:"#0D0D0F",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
       <style>{G}</style>
-      <img src="/icon.png" style={{width:72,height:72,borderRadius:16,display:"block"}} />
+      <img src="/icone.png" style={{width:72,height:72,borderRadius:16,display:"block"}} />
       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,letterSpacing:"0.25em",color:"#F2EDE2"}}>MEMORAVIN</div>
     </div>
   );
@@ -881,7 +881,7 @@ export default function App() {
       {/* Header */}
       <div style={{padding:"16px 24px 14px",borderBottom:`1px solid ${C.border}`,background:C.card,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src="/icon.png" style={{width:36,height:36,borderRadius:8,display:"block"}} />
+          <img src="/icone.png" style={{width:36,height:36,borderRadius:8,display:"block"}} />
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,letterSpacing:"0.18em",color:C.text}}>MEMORAVIN</span>
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:8,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase"}}>Adega & Memórias</div>
