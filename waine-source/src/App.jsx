@@ -34,6 +34,17 @@ const getCastaFiltro = (grapes) => {
   return lista[0] || null;
 };
 
+// ── Lightbox ───────────────────────────────────────────────────────────────────
+const Lightbox = ({ url, onClose }) => {
+  if (!url) return null;
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <button onClick={onClose} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",fontSize:32,cursor:"pointer",lineHeight:1}}>×</button>
+      <img src={url} onClick={e=>e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8}} />
+    </div>
+  );
+};
+
 // Coordenadas países no mapa
 const PAIS_COORDS = {
   "África do Sul": { x: 530, y: 375 },
@@ -146,10 +157,10 @@ const TabMapa = ({ wines }) => {
 };
 
 // ── Memórias — Top 20 experiências ────────────────────────────────────────────
-const TabMemorias = ({ wines, setWines }) => {
+const TabMemorias = ({ wines }) => {
   const [detail, setDetail] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
 
-  // Top 20 vinhos com memória e nota emocional, ordenados por ❤️
   const top20 = [...wines]
     .filter(w => w.memory && w.rating > 0)
     .sort((a,b) => (b.rating||0) - (a.rating||0))
@@ -159,11 +170,15 @@ const TabMemorias = ({ wines, setWines }) => {
     const w = detail;
     return (
       <div style={{position:"fixed",inset:0,background:C.bg,zIndex:50,overflowY:"auto"}}>
+        <Lightbox url={lightbox} onClose={()=>setLightbox(null)} />
         <div style={{position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",zIndex:10}}>
           <button onClick={()=>setDetail(null)} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:12,letterSpacing:"0.08em",color:C.sub,cursor:"pointer",padding:0}}>← MEMÓRIAS</button>
         </div>
         <div style={{padding:"28px 20px 80px"}}>
-          {w.photos?.[0]&&<img src={w.photos[0]} style={{width:"100%",height:200,objectFit:"cover",borderRadius:10,marginBottom:24,border:`1px solid ${C.border}`}} />}
+          {w.photos?.[0]&&(
+            <img src={w.photos[0]} onClick={()=>setLightbox(w.photos[0])}
+              style={{width:"100%",height:200,objectFit:"cover",borderRadius:10,marginBottom:24,border:`1px solid ${C.border}`,cursor:"zoom-in"}} />
+          )}
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
             <span style={{fontSize:22}}>❤️</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:48,fontWeight:300,color:C.red,lineHeight:1}}>{w.rating}</span>
@@ -200,13 +215,11 @@ const TabMemorias = ({ wines, setWines }) => {
         ) : top20.map((w, i) => (
           <div key={w.id} onClick={()=>setDetail(w)}
             style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,marginBottom:10,cursor:"pointer",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.04)",display:"flex",alignItems:"stretch"}}>
-            {/* Ranking lateral */}
             <div style={{width:52,background:i===0?C.red:i===1?"#B8860B":i===2?C.sepia:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,flexShrink:0}}>
               <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:11,color:i<3?"#fff":C.muted,fontWeight:600}}>#{i+1}</span>
               <span style={{fontSize:14}}>❤️</span>
               <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:i<3?"#fff":C.red}}>{w.rating}</span>
             </div>
-            {/* Conteúdo */}
             <div style={{flex:1,padding:"14px 16px",minWidth:0}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:600,color:C.text,lineHeight:1.2,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.name}</div>
               <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:8}}>{w.producer} · {w.vintage}</div>
@@ -215,7 +228,6 @@ const TabMemorias = ({ wines, setWines }) => {
               )}
               {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:6}}>📍 {w.location}</div>}
             </div>
-            {/* Foto thumbnail */}
             {w.photos?.[0]&&(
               <img src={w.photos[0]} style={{width:64,objectFit:"cover",flexShrink:0}} />
             )}
@@ -322,6 +334,7 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aibusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState("");
+  const [lightbox, setLightbox] = useState(null);
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const save = () => { onUpdate(f); setEditing(false); setAiPrompt(""); setAiMsg(""); };
   const isDegustado = w.bottles === 0;
@@ -363,6 +376,7 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
 
   return (
     <div style={{position:"fixed",inset:0,background:C.bg,zIndex:50,overflowY:"auto"}}>
+      <Lightbox url={lightbox} onClose={()=>setLightbox(null)} />
       <div style={{position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10}}>
         <button onClick={onBack} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:12,letterSpacing:"0.08em",color:C.sub,cursor:"pointer",padding:0}}>← ADEGA</button>
         <button onClick={()=>editing?save():setEditing(true)} style={{background:editing?C.red:"none",border:`1px solid ${editing?C.red:C.border}`,borderRadius:4,padding:"7px 18px",fontFamily:"'DM Sans'",fontSize:11,color:editing?"#fff":C.sub,cursor:"pointer"}}>
@@ -379,7 +393,14 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
         )}
         {editing
           ? <PhotoUploader photos={f.photos||[]} onChange={v=>set("photos",v)} />
-          : f.photos?.length>0&&<div style={{display:"flex",gap:12,marginBottom:28}}>{f.photos.map((url,i)=><img key={i} src={url} style={{width:130,height:170,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,boxShadow:"0 4px 16px rgba(0,0,0,0.1)",filter:isDegustado?"sepia(30%)":"none"}} />)}</div>
+          : f.photos?.length>0&&(
+            <div style={{display:"flex",gap:12,marginBottom:28}}>
+              {f.photos.map((url,i)=>(
+                <img key={i} src={url} onClick={()=>setLightbox(url)}
+                  style={{width:130,height:170,objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,boxShadow:"0 4px 16px rgba(0,0,0,0.1)",filter:isDegustado?"sepia(30%)":"none",cursor:"zoom-in"}} />
+              ))}
+            </div>
+          )
         }
         <div style={{width:28,height:3,background:accentColor,marginBottom:20,borderRadius:1}} />
         <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:8}}>{w.style} · {w.country}</div>
@@ -389,7 +410,6 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
         }
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,marginBottom:28}}>{w.producer}, {w.vintage}</div>
 
-        {/* Nota emocional ❤️ */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:32}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:28}}>❤️</span>
@@ -404,7 +424,6 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
           </div>
         </div>
 
-        {/* Slider emocional no modo editar */}
         {editing&&(
           <div style={{marginBottom:24}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8}}>❤️ EMOÇÃO — {f.rating}</div>
@@ -426,13 +445,11 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
 
         <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>MINHA MEMÓRIA</div>
         {editing
-          ? <div>
-              <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8}}>
-                <textarea value={f.memory||""} onChange={e=>set("memory",e.target.value)} rows={4}
-                  placeholder="Onde estava, com quem, o que sentiu..."
-                  style={{flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-                <VoiceButton onResult={txt=>set("memory",(f.memory?f.memory+" ":"")+txt)} />
-              </div>
+          ? <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8}}>
+              <textarea value={f.memory||""} onChange={e=>set("memory",e.target.value)} rows={4}
+                placeholder="Onde estava, com quem, o que sentiu..."
+                style={{flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
+              <VoiceButton onResult={txt=>set("memory",(f.memory?f.memory+" ":"")+txt)} />
             </div>
           : w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontStyle:"italic",color:C.sub,lineHeight:1.85,marginBottom:12}}>"{w.memory}"</div>
         }
@@ -569,14 +586,10 @@ const AddWine = ({ onClose, onSave }) => {
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>GARRAFAS NA ADEGA</div>
           <Qty value={f.bottles} onChange={v=>set("bottles",v)} accent={C.red} />
         </div>
-
-        {/* Emoção ❤️ */}
         <div style={{marginBottom:16}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>❤️ EMOÇÃO — {f.rating}</div>
           <input type="range" min={0} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:"100%",accentColor:C.red}} />
         </div>
-
-        {/* Memória com voz */}
         <div style={{marginBottom:16}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:6}}>MINHA MEMÓRIA</div>
           <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
@@ -585,7 +598,6 @@ const AddWine = ({ onClose, onSave }) => {
             <VoiceButton onResult={txt=>set("memory",(f.memory?f.memory+" ":"")+txt)} />
           </div>
         </div>
-
         {inp("Local / Vinícola","location")}
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24,cursor:"pointer"}} onClick={()=>set("special",!f.special)}>
           <div style={{width:20,height:20,border:`1.5px solid ${f.special?C.gold:C.border}`,borderRadius:4,background:f.special?C.goldL:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
