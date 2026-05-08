@@ -51,25 +51,6 @@ const getCastaFiltro = (grapes) => {
   return lista[0] || null;
 };
 
-// ── Símbolo MEMORAVIN em SVG ───────────────────────────────────────────────────
-const SimboloMemoravin = ({ size=80, color="#C9A46E", strokeWidth=2 }) => (
-  <svg width={size} height={size*1.2} viewBox="0 0 100 120">
-    {/* Coração = topo do cacho */}
-    <path d="M 50,38 C 50,38 50,18 35,18 C 20,18 20,32 20,32 C 20,46 35,54 50,66 C 65,54 80,46 80,32 C 80,32 80,18 65,18 C 50,18 50,38 50,38 Z"
-          fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
-    {/* Caule */}
-    <line x1="50" y1="16" x2="50" y2="10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
-    {/* Uvas - linha 1 */}
-    <circle cx="34" cy="74" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-    <circle cx="50" cy="74" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-    <circle cx="66" cy="74" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-    {/* Uvas - linha 2 */}
-    <circle cx="42" cy="90" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-    <circle cx="58" cy="90" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-    {/* Uva - base */}
-    <circle cx="50" cy="106" r="9" fill="none" stroke={color} strokeWidth={strokeWidth}/>
-  </svg>
-);
 
 // ── Tela de Capa ───────────────────────────────────────────────────────────────
 const Capa = ({ onEntrar }) => (
@@ -94,7 +75,7 @@ const Capa = ({ onEntrar }) => (
     <div style={{position:"relative",flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:0,width:"100%",padding:"0 40px"}}>
 
       {/* Símbolo */}
-      <SimboloMemoravin size={72} color="#C9A46E" strokeWidth={2.5} />
+      <img src="/icon.png" style={{width:110,height:110,borderRadius:20,display:"block"}} />
 
       {/* Linha decorativa */}
       <div style={{width:1,height:24,background:"rgba(201,164,110,0.4)",marginBottom:20}} />
@@ -877,7 +858,7 @@ export default function App() {
   if(loading) return (
     <div style={{maxWidth:430,margin:"0 auto",height:"100vh",background:"#0D0D0F",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
       <style>{G}</style>
-      <SimboloMemoravin size={48} color="#C9A46E" strokeWidth={2} />
+      <img src="/icon.png" style={{width:72,height:72,borderRadius:16,display:"block"}} />
       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,letterSpacing:"0.25em",color:"#F2EDE2"}}>MEMORAVIN</div>
     </div>
   );
@@ -900,7 +881,7 @@ export default function App() {
       {/* Header */}
       <div style={{padding:"16px 24px 14px",borderBottom:`1px solid ${C.border}`,background:C.card,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <SimboloMemoravin size={28} color={C.goldD} strokeWidth={2} />
+          <img src="/icon.png" style={{width:36,height:36,borderRadius:8,display:"block"}} />
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,letterSpacing:"0.18em",color:C.text}}>MEMORAVIN</span>
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:8,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase"}}>Adega & Memórias</div>
