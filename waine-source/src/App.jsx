@@ -45,6 +45,33 @@ const Lightbox = ({ url, onClose }) => {
   );
 };
 
+// ── Enriquecer vinho com IA ────────────────────────────────────────────────────
+const enriquecerVinho = async (w) => {
+  const res = await fetch("/api/claude", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2000,
+      messages:[{ role:"user", content:`Você é um sommelier especialista em vinhos e terroir. Para o vinho "${w.name}" do produtor "${w.producer}", região "${w.region}", país "${w.country}", uvas "${w.grapes}", safra ${w.vintage}:
+
+Retorne APENAS JSON válido sem markdown:
+{
+  "historia": "História e filosofia do produtor em 3-4 frases sofisticadas em português. Se já existir uma boa história aqui: '${(w.historia||"").substring(0,200)}', mantenha-a melhorada.",
+  "regiao": "Descrição rica do terroir da região: clima, topografia, ventos, proximidade de mar/lago/montanhas, solo, altitude, o que torna esta região especial para viticultura. 4-5 frases em português, tom apaixonado e técnico.",
+  "alcohol": "grau alcoólico típico deste vinho como número, ex: 14.5",
+  "notas": {
+    "aromas": "Aromas principais em 1-2 linhas",
+    "paladar": "Sensações na boca em 1-2 linhas",
+    "estrutura": "Taninos, acidez, corpo e grau alcoólico integrado em 1 linha",
+    "guarda": "Potencial de guarda em 1 linha",
+    "harmonizacao": "Harmonização gastronômica em 1 linha"
+  }
+}` }]
+    })
+  });
+  const d = await res.json();
+  const parsed = JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim());
+  return { ...w, ...parsed };
+};
+
 // Coordenadas países no mapa
 const PAIS_COORDS = {
   "África do Sul": { x: 530, y: 375 },
@@ -80,10 +107,7 @@ const TabMapa = ({ wines }) => {
 
   const maxGarrafas = Math.max(...Object.values(porPais).map(p=>p.garrafas), 1);
   const getR = (g) => 18 + ((g/maxGarrafas) * 22);
-
-  const paisesComCoords = Object.entries(porPais).map(([pais,dados])=>({
-    pais, ...dados, coords: PAIS_COORDS[pais]||null
-  })).filter(p=>p.coords);
+  const paisesComCoords = Object.entries(porPais).map(([pais,dados])=>({ pais, ...dados, coords: PAIS_COORDS[pais]||null })).filter(p=>p.coords);
 
   return (
     <div style={{flex:1,overflowY:"auto",paddingBottom:90}}>
@@ -94,7 +118,6 @@ const TabMapa = ({ wines }) => {
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:2}}>{winesAtivos.reduce((a,b)=>a+b.bottles,0)} garrafas em estoque</div>
       </div>
-
       <div style={{padding:"0 12px",marginBottom:20}}>
         <div style={{background:C.card,borderRadius:12,border:`1px solid ${C.border}`,overflow:"hidden"}}>
           <svg viewBox="0 0 1000 500" style={{width:"100%",display:"block"}}>
@@ -111,7 +134,6 @@ const TabMapa = ({ wines }) => {
             <path d="M 720,120 L 860,120 L 870,180 L 840,210 L 790,220 L 750,210 L 720,190 L 710,160 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
             <path d="M 770,340 L 900,330 L 920,380 L 900,430 L 850,450 L 800,440 L 770,400 L 760,370 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
             <path d="M 900,410 L 915,410 L 920,440 L 905,445 L 898,430 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-
             {paisesComCoords.map(({ pais, garrafas, rotulos, coords }) => {
               const r = getR(garrafas);
               const isSelected = tooltip?.pais === pais;
@@ -122,7 +144,6 @@ const TabMapa = ({ wines }) => {
                 </g>
               );
             })}
-
             {tooltip&&(
               <g>
                 <rect x={Math.min(tooltip.coords.x+10,820)} y={tooltip.coords.y-42} width="165" height="54" rx="6" fill="#1A1410" fillOpacity="0.88"/>
@@ -134,7 +155,6 @@ const TabMapa = ({ wines }) => {
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,textAlign:"center",marginTop:8,letterSpacing:"0.06em"}}>Toque num país para ver detalhes</div>
       </div>
-
       <div style={{padding:"0 20px"}}>
         <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>POR PAÍS</div>
         {Object.entries(porPais).sort((a,b)=>b[1].garrafas-a[1].garrafas).map(([pais,dados])=>(
@@ -156,7 +176,7 @@ const TabMapa = ({ wines }) => {
   );
 };
 
-// ── Memórias — Top 20 experiências ────────────────────────────────────────────
+// ── Memórias ───────────────────────────────────────────────────────────────────
 const TabMemorias = ({ wines }) => {
   const [detail, setDetail] = useState(null);
   const [lightbox, setLightbox] = useState(null);
@@ -175,10 +195,7 @@ const TabMemorias = ({ wines }) => {
           <button onClick={()=>setDetail(null)} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:12,letterSpacing:"0.08em",color:C.sub,cursor:"pointer",padding:0}}>← MEMÓRIAS</button>
         </div>
         <div style={{padding:"28px 20px 80px"}}>
-          {w.photos?.[0]&&(
-            <img src={w.photos[0]} onClick={()=>setLightbox(w.photos[0])}
-              style={{width:"100%",height:200,objectFit:"cover",borderRadius:10,marginBottom:24,border:`1px solid ${C.border}`,cursor:"zoom-in"}} />
-          )}
+          {w.photos?.[0]&&<img src={w.photos[0]} onClick={()=>setLightbox(w.photos[0])} style={{width:"100%",height:200,objectFit:"cover",borderRadius:10,marginBottom:24,border:`1px solid ${C.border}`,cursor:"zoom-in"}} />}
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
             <span style={{fontSize:22}}>❤️</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:48,fontWeight:300,color:C.red,lineHeight:1}}>{w.rating}</span>
@@ -204,13 +221,12 @@ const TabMemorias = ({ wines }) => {
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:2}}>As {top20.length} maiores emoções da adega</div>
       </div>
-
       <div style={{padding:"0 20px"}}>
         {top20.length === 0 ? (
           <div style={{textAlign:"center",padding:"60px 0"}}>
             <div style={{fontSize:36,marginBottom:16}}>❤️</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>As tuas memórias vinícolas aparecerão aqui</div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:8}}>Adiciona uma memória ao registar ou editar um vinho</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>As suas memórias vinícolas aparecerão aqui</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginTop:8}}>Adicione uma memória ao registrar ou editar um vinho</div>
           </div>
         ) : top20.map((w, i) => (
           <div key={w.id} onClick={()=>setDetail(w)}
@@ -223,14 +239,10 @@ const TabMemorias = ({ wines }) => {
             <div style={{flex:1,padding:"14px 16px",minWidth:0}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:600,color:C.text,lineHeight:1.2,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.name}</div>
               <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:8}}>{w.producer} · {w.vintage}</div>
-              {w.memory&&(
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{w.memory}"</div>
-              )}
+              {w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{w.memory}"</div>}
               {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:6}}>📍 {w.location}</div>}
             </div>
-            {w.photos?.[0]&&(
-              <img src={w.photos[0]} style={{width:64,objectFit:"cover",flexShrink:0}} />
-            )}
+            {w.photos?.[0]&&<img src={w.photos[0]} style={{width:64,objectFit:"cover",flexShrink:0}} />}
           </div>
         ))}
       </div>
@@ -346,19 +358,18 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
     try {
       const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1500,
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2000,
           messages:[{ role:"user", content:`Você é um sommelier especialista. Tenho uma ficha de vinho:
 Nome: ${f.name} | Produtor: ${f.producer} | Safra: ${f.vintage}
 Região: ${f.region} | País: ${f.country} | Uvas: ${f.grapes} | Estilo: ${f.style}
-História: ${typeof f.historia === "string" ? f.historia : ""}
-Notas: ${typeof f.notas === "object" ? JSON.stringify(f.notas) : f.notas || ""}
 
 O usuário quer corrigir: "${aiPrompt}"
 
-Retorne APENAS JSON válido sem markdown com os campos que mudaram:
+Retorne APENAS JSON válido sem markdown com os campos que mudaram. Campos possíveis:
 {
-  "region":"...","country":"...","grapes":"...","style":"...",
+  "region":"...","country":"...","grapes":"...","style":"...","alcohol":"...",
   "historia":"...",
+  "regiao":"descrição rica do terroir da região",
   "notas":{"aromas":"...","paladar":"...","estrutura":"...","guarda":"...","harmonizacao":"..."}
 }` }]
         })
@@ -410,6 +421,7 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
         }
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,marginBottom:28}}>{w.producer}, {w.vintage}</div>
 
+        {/* Nota emocional + garrafas */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:32}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:28}}>❤️</span>
@@ -431,18 +443,20 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
           </div>
         )}
 
+        {/* Grade de dados */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:C.border,marginBottom:32,borderRadius:4,overflow:"hidden"}}>
-          {[["REGIÃO","region"],["PAÍS","country"],["UVAS","grapes"],["ADQUIRIDO","date"]].map(([l,k])=>(
+          {[["REGIÃO","region"],["PAÍS","country"],["UVAS","grapes"],["ADQUIRIDO","date"],["ÁLCOOL","alcohol"]].map(([l,k])=>(
             <div key={k} style={{background:C.card,padding:"14px 16px"}}>
               <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:5}}>{l}</div>
               {editing
-                ? <input value={f[k]||""} onChange={e=>set(k,e.target.value)} style={{width:"100%",fontFamily:"'DM Sans'",fontSize:13,color:C.text,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none",boxSizing:"border-box"}} />
-                : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:C.sub}}>{w[k]}</div>
+                ? <input value={f[k]||""} onChange={e=>set(k,e.target.value)} placeholder={k==="alcohol"?"ex: 14.5%":""} style={{width:"100%",fontFamily:"'DM Sans'",fontSize:13,color:C.text,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none",boxSizing:"border-box"}} />
+                : <div style={{fontFamily:"'DM Sans'",fontSize:13,color:C.sub}}>{w[k]}{k==="alcohol"&&w[k]&&!String(w[k]).includes("%")?"%":""}</div>
               }
             </div>
           ))}
         </div>
 
+        {/* Memória */}
         <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>MINHA MEMÓRIA</div>
         {editing
           ? <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8}}>
@@ -455,7 +469,8 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
         }
         {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginTop:8,marginBottom:32}}>📍 {w.location}</div>}
 
-        {(editing?f.historia:w.historia)&&(
+        {/* O PRODUTOR */}
+        {(editing||w.historia)&&(
           <div style={{marginBottom:20,padding:"18px",background:"#F9F6F2",borderRadius:8,border:"1px solid rgba(154,107,46,0.15)"}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.gold,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>O PRODUTOR</div>
             {editing
@@ -464,7 +479,20 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
             }
           </div>
         )}
-        {(editing?f.notas:w.notas)&&(
+
+        {/* A REGIÃO */}
+        {(editing||w.regiao)&&(
+          <div style={{marginBottom:20,padding:"18px",background:"#F2F6F2",borderRadius:8,border:"1px solid rgba(42,96,64,0.15)"}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.green,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>A REGIÃO</div>
+            {editing
+              ? <textarea value={f.regiao||""} onChange={e=>set("regiao",e.target.value)} rows={4} placeholder="Terroir, clima, topografia, ventos, proximidade do mar..." style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,border:`1px solid ${C.border}`,borderRadius:4,background:"#F2F6F2",outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
+              : <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>
+            }
+          </div>
+        )}
+
+        {/* O VINHO */}
+        {(editing||w.notas)&&(
           <div style={{marginBottom:20,padding:"18px",background:"#F9F6F2",borderRadius:8,border:"1px solid rgba(139,31,42,0.12)"}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.red,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>O VINHO</div>
             {editing
@@ -480,6 +508,8 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
             }
           </div>
         )}
+
+        {/* Corrigir com IA */}
         {editing&&(
           <div style={{marginBottom:20,padding:"16px",background:C.redL,borderRadius:8,border:`1px solid rgba(139,31,42,0.15)`}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.red,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:10}}>✦ CORRIGIR COM IA</div>
@@ -499,7 +529,7 @@ Retorne APENAS JSON válido sem markdown com os campos que mudaram:
 
 // ── Add Wine ───────────────────────────────────────────────────────────────────
 const AddWine = ({ onClose, onSave }) => {
-  const [f, setF] = useState({ name:"", producer:"", vintage:2024, region:"", country:"Africa do Sul", grapes:"", style:"Tinto", bottles:1, rating:50, memory:"", location:"", accent:C.red, special:false, photos:[], historia:"", notas:null });
+  const [f, setF] = useState({ name:"", producer:"", vintage:2024, region:"", country:"Africa do Sul", grapes:"", style:"Tinto", bottles:1, rating:50, memory:"", location:"", accent:C.red, special:false, photos:[], historia:"", regiao:"", alcohol:"", notas:null });
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState({ msg:"", ok:false });
   const set = (k,v) => setF(p=>({...p,[k]:v}));
@@ -509,21 +539,23 @@ const AddWine = ({ onClose, onSave }) => {
     setBusy(true); setStatus({msg:"Pesquisando vinho e produtor...",ok:false});
     try {
       const res = await fetch("/api/claude",{ method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1500,
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2000,
           messages:[{ role:"user", content:`Você é um sommelier especialista. Para o vinho "${f.name}" do produtor "${f.producer}" safra ${f.vintage}, retorne APENAS JSON válido sem markdown:
 {
   "region": "região vinícola",
   "country": "país em português",
-  "grapes": "uvas separadas por vírgula — se for varietal coloque apenas uma uva, se for blend coloque todas separadas por vírgula",
+  "grapes": "uvas — varietal único ou blend separado por vírgulas",
   "style": "Tinto|Branco|Rose|Espumante|Sobremesa",
   "accent": "#hexcolor escuro da cor real do vinho",
-  "historia": "Parágrafo rico de 3-4 frases sobre história e filosofia do produtor. Português, tom sofisticado.",
+  "alcohol": "grau alcoólico típico como número ex: 14.5",
+  "historia": "História e filosofia do produtor em 3-4 frases sofisticadas.",
+  "regiao": "Descrição rica do terroir: clima, topografia, ventos, proximidade de mar/montanhas, solo, altitude. 4-5 frases apaixonadas e técnicas.",
   "notas": {
-    "aromas": "Descrição curta dos aromas principais (1-2 linhas)",
-    "paladar": "Sensações na boca, textura, sabores (1-2 linhas)",
-    "estrutura": "Taninos, acidez, corpo, álcool (1 linha)",
-    "guarda": "Potencial de guarda e quando beber (1 linha)",
-    "harmonizacao": "Sugestão de harmonização gastronômica (1 linha)"
+    "aromas": "Aromas principais em 1-2 linhas",
+    "paladar": "Sensações na boca em 1-2 linhas",
+    "estrutura": "Taninos, acidez, corpo e álcool em 1 linha",
+    "guarda": "Potencial de guarda em 1 linha",
+    "harmonizacao": "Harmonização gastronômica em 1 linha"
   }
 }` }]
         })
@@ -532,7 +564,7 @@ const AddWine = ({ onClose, onSave }) => {
       if(d.error) { setStatus({msg:"API: "+d.error.message,ok:false}); setBusy(false); return; }
       const parsed = JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim());
       setF(p=>({...p,...parsed}));
-      setStatus({msg:"Ficha completa! Adiciona a tua memória emocional.",ok:true});
+      setStatus({msg:"Ficha completa! Adicione sua memória emocional.",ok:true});
     } catch(e) { setStatus({msg:"Erro: "+(e.message||String(e)),ok:false}); }
     setBusy(false);
   };
@@ -566,6 +598,12 @@ const AddWine = ({ onClose, onSave }) => {
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,lineHeight:1.8}}>{f.historia}</div>
           </div>
         )}
+        {f.regiao&&(
+          <div style={{marginBottom:16,padding:"16px",background:"#F2F6F2",borderRadius:8,border:`1px solid rgba(42,96,64,0.15)`}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.green,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8}}>A REGIÃO</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,lineHeight:1.8}}>{f.regiao}</div>
+          </div>
+        )}
         {f.notas&&(
           <div style={{marginBottom:16,padding:"16px",background:"#F9F6F2",borderRadius:8,border:`1px solid rgba(139,31,42,0.12)`}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.red,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:12}}>O VINHO</div>
@@ -574,7 +612,7 @@ const AddWine = ({ onClose, onSave }) => {
         )}
         {status.ok&&(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:C.border,marginBottom:16,borderRadius:4,overflow:"hidden"}}>
-            {[["REGIÃO",f.region],["PAÍS",f.country],["UVAS",f.grapes],["ESTILO",f.style]].map(([l,v])=>(
+            {[["REGIÃO",f.region],["PAÍS",f.country],["UVAS",f.grapes],["ESTILO",f.style],["ÁLCOOL",f.alcohol?f.alcohol+"%":""]].map(([l,v])=>(
               <div key={l} style={{background:C.card,padding:"12px 14px"}}>
                 <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>{l}</div>
                 <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.sub}}>{v}</div>
@@ -623,11 +661,35 @@ const TabAdega = ({ wines, setWines }) => {
   const [adding, setAdding] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState(null);
   const [search, setSearch] = useState("");
+  const [enriquecendo, setEnriquecendo] = useState(false);
+  const [progresso, setProgresso] = useState({ atual:0, total:0, msg:"" });
   const update = u => setWines(ws=>ws.map(w=>w.id===u.id?u:w));
 
   const tipos = ["Tinto","Branco","Rose","Espumante","Sobremesa"];
   const winesAtivos = wines.filter(w => w.bottles > 0);
   const winesDegustados = wines.filter(w => w.bottles === 0);
+
+  // Botão enriquecer toda a adega
+  const enriquecerAdega = async () => {
+    if (!window.confirm(`Enriquecer todas as ${wines.length} fichas com IA?\n\nIsso vai:\n• Converter notas para tópicos\n• Adicionar A REGIÃO (terroir)\n• Completar O PRODUTOR\n• Adicionar grau alcoólico\n\nPode demorar alguns minutos.`)) return;
+    setEnriquecendo(true);
+    const total = wines.length;
+    setProgresso({ atual:0, total, msg:"Iniciando..." });
+    const novasWines = [...wines];
+    for (let i = 0; i < wines.length; i++) {
+      const w = wines[i];
+      setProgresso({ atual:i+1, total, msg:`${w.name}...` });
+      try {
+        const enriquecida = await enriquecerVinho(w);
+        novasWines[i] = enriquecida;
+        setWines([...novasWines]);
+      } catch(e) { console.error("Erro ao enriquecer", w.name, e); }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    setEnriquecendo(false);
+    setProgresso({ atual:0, total:0, msg:"" });
+    alert("✓ Adega enriquecida com sucesso!");
+  };
 
   const filtroCasta = winesAtivos.reduce((acc, w) => {
     const cf = getCastaFiltro(w.grapes);
@@ -666,8 +728,23 @@ const TabAdega = ({ wines, setWines }) => {
   return (
     <div style={{flex:1,overflowY:"auto",paddingBottom:90}}>
       {adding&&<AddWine onClose={()=>setAdding(false)} onSave={w=>{setWines(p=>[...p,w]);setAdding(false);}} />}
+
+      {/* Modal de progresso */}
+      {enriquecendo&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:150,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:C.card,borderRadius:16,padding:"32px 28px",width:300,textAlign:"center"}}>
+            <div style={{fontSize:32,marginBottom:12}}>✦</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:C.text,marginBottom:8}}>Enriquecendo adega</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:12,color:C.muted,marginBottom:20}}>{progresso.atual} de {progresso.total} · {progresso.msg}</div>
+            <div style={{background:C.bg,borderRadius:4,height:4,overflow:"hidden"}}>
+              <div style={{background:C.red,height:"100%",width:`${(progresso.atual/progresso.total)*100}%`,transition:"width 0.3s",borderRadius:4}} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{padding:"24px 20px 0"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
           <div>
             <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:4}}>ADEGA</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,color:C.text,lineHeight:1}}>
@@ -677,6 +754,15 @@ const TabAdega = ({ wines, setWines }) => {
           </div>
           <button onClick={()=>setAdding(true)} style={{background:C.red,border:"none",borderRadius:"50%",width:46,height:46,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:24,boxShadow:"0 2px 12px rgba(139,31,42,0.3)"}}>+</button>
         </div>
+
+        {/* Botão enriquecer adega */}
+        {wines.length>0&&!filtroAtivo&&(
+          <button onClick={enriquecerAdega} disabled={enriquecendo}
+            style={{width:"100%",padding:"11px",marginBottom:20,background:"none",border:`1px solid ${C.gold}`,borderRadius:8,color:C.gold,fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <span>✦</span>
+            <span>{enriquecendo?"Enriquecendo...":"Enriquecer adega com IA"}</span>
+          </button>
+        )}
       </div>
 
       {filtroAtivo ? (
@@ -860,7 +946,7 @@ export default function App() {
       <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
         {tab==="adega"&&<TabAdega wines={wines} setWines={setWines} />}
         {tab==="mapa"&&<TabMapa wines={wines} />}
-        {tab==="memorias"&&<TabMemorias wines={wines} setWines={setWines} />}
+        {tab==="memorias"&&<TabMemorias wines={wines} />}
       </div>
       <div style={{position:"absolute",bottom:0,left:0,right:0,background:C.card,borderTop:`1px solid ${C.border}`,paddingTop:"10px",paddingBottom:"calc(14px + env(safe-area-inset-bottom))",display:"flex",justifyContent:"space-around",zIndex:40,boxShadow:"0 -4px 20px rgba(0,0,0,0.06)"}}>
         {tabs.map(t=>(
