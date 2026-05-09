@@ -840,15 +840,6 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
             :<NotasTopicos notas={w.notas} />}
         </div>}
 
-        {editing&&<div style={{marginBottom:20,padding:"18px",background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>✦ CORRIGIR COM IA</div>
-          <textarea value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} rows={2} placeholder='ex: "Este vinho é da África do Sul, não da França."' style={{width:"100%",fontFamily:"'DM Sans'",fontSize:13,color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:"10px 12px",resize:"none",boxSizing:"border-box",marginBottom:10}} />
-          <button onClick={corrigirIA} disabled={aibusy||!aiPrompt.trim()} style={{width:"100%",padding:"10px",background:C.goldD,border:"none",borderRadius:4,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",opacity:!aiPrompt.trim()?0.4:1}}>
-            {aibusy?"Corrigindo...":"Refinar com IA"}
-          </button>
-          {aiMsg&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:aiMsg.startsWith("✓")?C.green:C.goldD,marginTop:8}}>{aiMsg}</div>}
-        </div>}
-
         {/* AÇÕES NO RODAPÉ — Pergunte ao Sommelier + Editar Ficha (modo visualização) */}
         {!editing && (
           <div style={{marginTop:32,paddingTop:24,borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:10}}>
