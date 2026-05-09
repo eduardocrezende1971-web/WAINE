@@ -11,18 +11,18 @@ const C = {
   bg:     "#F7F3EE",
   card:   "#FFFFFF",
   card2:  "#F2EDE2",
-  border: "rgba(0,0,0,0.07)",
+  border: "rgba(0,0,0,0.10)",
   text:   "#1A1410",
-  sub:    "#6B5F54",
-  muted:  "#A89B8E",
+  sub:    "#3A2F26",
+  muted:  "#6B5F54",
   gold:   "#C9A46E",
-  goldD:  "#9A7A4A",
+  goldD:  "#7D6238",
   goldL:  "rgba(201,164,110,0.12)",
   wine:   "#5B0F1A",
   wineL:  "rgba(91,15,26,0.08)",
-  sepia:  "#7A5C3A",
+  sepia:  "#5C4528",
   sepiaL: "rgba(122,92,58,0.08)",
-  green:  "#2A6040",
+  green:  "#1F4A30",
   greenL: "rgba(42,96,64,0.08)",
 };
 
@@ -128,7 +128,7 @@ const Capa = ({ onEntrar }) => (
       <img src={ICONE_CAPA} alt="MEMORAVIN" style={{width:120,height:120,display:"block",objectFit:"contain"}} />
 
       {/* Linha decorativa */}
-      <div style={{width:1,height:24,background:"rgba(201,164,110,0.4)",marginTop:8,marginBottom:20}} />
+      <div style={{width:1,height:24,background:"rgba(201,164,110,0.6)",marginTop:8,marginBottom:20}} />
 
       {/* Nome */}
       <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:36,fontWeight:300,letterSpacing:"0.3em",color:"#F2EDE2",marginBottom:6,textAlign:"center"}}>
@@ -354,7 +354,7 @@ const TabMapa = ({ wines, onOpenWine }) => {
             <div style={{fontFamily:"'DM Sans'",fontSize:8,color:"rgba(255,255,255,0.85)",letterSpacing:"0.22em",textTransform:"uppercase",marginBottom:6}}>✦ Sua adega sugere</div>
             <div onClick={()=>onOpenWine&&onOpenWine(sugestao)} style={{cursor:"pointer"}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:"#FFFFFF",lineHeight:1.2,marginBottom:3}}>{sugestao.name}</div>
-              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:"rgba(255,255,255,0.75)",letterSpacing:"0.06em",textTransform:"uppercase"}}>{sugestao.country||""} {sugestao.vintage?"· "+sugestao.vintage:""} · você tem {sugestao.bottles}</div>
+              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:"rgba(255,255,255,0.92)",letterSpacing:"0.06em",textTransform:"uppercase"}}>{sugestao.country||""} {sugestao.vintage?"· "+sugestao.vintage:""} · você tem {sugestao.bottles}</div>
             </div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginTop:14,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.2)"}}>
               <button onClick={sortear} style={{background:"none",border:"none",color:"rgba(255,255,255,0.9)",fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:6}}>
@@ -754,7 +754,7 @@ Formato OBRIGATÓRIO da resposta:
               </div>
             )}
 
-            <button onClick={novaPergunta} style={{width:"100%",background:"none",border:`1px solid rgba(201,164,110,0.4)`,borderRadius:8,padding:"12px",marginBottom:6,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:C.goldD,letterSpacing:"0.2em",textTransform:"uppercase",fontWeight:300}}>
+            <button onClick={novaPergunta} style={{width:"100%",background:"none",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"12px",marginBottom:6,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:C.goldD,letterSpacing:"0.2em",textTransform:"uppercase",fontWeight:300}}>
               Fazer outra pergunta
             </button>
           </>
@@ -914,7 +914,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
               <span style={{color:"#FFFFFF",fontSize:14,opacity:0.95}}>✦</span>
               <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase"}}>Pergunte ao sommelier</span>
             </button>
-            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.4)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
               <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase"}}>Editar ficha</span>
             </button>
           </div>
@@ -1169,7 +1169,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
           {/* Card Degustados — mesmo formato dos outros, só fundo dourado */}
           <button onClick={()=>setFiltroAtivo("Degustados")} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"18px 16px",display:"flex",flexDirection:"column",cursor:"pointer",textAlign:"left",gap:6,marginBottom:32}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:"#FFFFFF"}}>Degustados</div>
-            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:"rgba(255,255,255,0.7)",letterSpacing:"0.06em"}}>{winesDegustados.length} rótulo{winesDegustados.length!==1?"s":""}</div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:"rgba(255,255,255,0.92)",letterSpacing:"0.06em"}}>{winesDegustados.length} rótulo{winesDegustados.length!==1?"s":""}</div>
           </button>
 
           {filtroCasta.length>0&&<>
@@ -1268,7 +1268,7 @@ export default function App() {
       <div style={{position:"absolute",bottom:0,left:0,right:0,background:"#0D0D0F",borderTop:"1px solid rgba(201,164,110,0.15)",paddingTop:"12px",paddingBottom:"calc(14px + env(safe-area-inset-bottom))",display:"flex",justifyContent:"space-around",zIndex:40}}>
         {tabs.map(t=>{
           const ativo = tab===t.id;
-          const cor = ativo ? "#C9A46E" : "rgba(201,164,110,0.45)";
+          const cor = ativo ? "#C9A46E" : "rgba(201,164,110,0.7)";
           return (
             <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,flex:1,padding:0}}>
               <IconeKV nome={t.id} cor={cor} />
