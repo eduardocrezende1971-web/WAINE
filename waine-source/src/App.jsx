@@ -966,7 +966,7 @@ const AddWine = ({ onClose, onSave }) => {
           </div>
         ))}
 
-        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:"16px 18px",marginBottom:18,background:status.ok?"#2A6040":"#C9A46E",border:"none",borderRadius:8,color:"#FFFFFF",fontFamily:"'DM Sans', sans-serif",fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",cursor:(!f.name||!f.producer)?"default":"pointer",fontWeight:400,opacity:(!f.name||!f.producer)?0.5:1}}>
+        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:"16px 18px",marginBottom:18,background:status.ok?"#1F4A30":(!f.name||!f.producer)?"#B8A584":"#C9A46E",border:"none",borderRadius:8,color:"#FFFFFF",fontFamily:"'DM Sans', sans-serif",fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",cursor:(!f.name||!f.producer)?"default":"pointer",fontWeight:500}}>
           {busy?"✦ Pesquisando...":status.ok?"✓ Ficha gerada":"✦ Gerar ficha com IA"}
         </button>
 
@@ -1016,10 +1016,10 @@ const AddWine = ({ onClose, onSave }) => {
           <input value={f.location} onChange={e=>set("location",e.target.value)} placeholder="ex: Kanonkop, Stellenbosch" style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:28,cursor:"pointer"}} onClick={()=>set("special",!f.special)}>
-          <div style={{width:20,height:20,border:`1px solid ${f.special?C.goldD:C.border}`,borderRadius:3,background:f.special?C.goldL:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            {f.special&&<span style={{color:C.goldD,fontSize:13}}>★</span>}
+          <div style={{width:22,height:22,border:`1px solid ${f.special?C.goldD:C.border}`,borderRadius:3,background:f.special?C.goldL:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{color:f.special?C.gold:"rgba(125,98,56,0.4)",fontSize:14,lineHeight:1}}>{f.special?"★":"☆"}</span>
           </div>
-          <span style={{fontFamily:"'DM Sans'",fontSize:12,color:C.sub}}>Marcar como especial</span>
+          <span style={{fontFamily:"'DM Sans'",fontSize:12,color:C.sub}}>Vinho especial</span>
         </div>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:14,background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",cursor:"pointer"}}>CANCELAR</button>
@@ -1063,7 +1063,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
     if (!filtroAtivo) return [];
     if (filtroAtivo==="Degustados") return winesDegustados.filter(w=>{const q=search.toLowerCase();return !q||w.name.toLowerCase().includes(q)||w.producer.toLowerCase().includes(q);});
     const base = filtroAtivo==="Todos"?winesAtivos
-      :filtroAtivo==="Especiais"?winesAtivos.filter(w=>w.special)
+      :filtroAtivo==="Especial"?winesAtivos.filter(w=>w.special)
       :tipos.includes(filtroAtivo)?winesAtivos.filter(w=>w.style===filtroAtivo)
       :filtroCasta.includes(filtroAtivo)?winesAtivos.filter(w=>getCastaFiltro(w.grapes)===filtroAtivo)
       :filtrosPais.includes(filtroAtivo)?winesAtivos.filter(w=>w.country===filtroAtivo)
@@ -1072,7 +1072,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   })();
 
   const total = winesAtivos.reduce((a,b)=>a+b.bottles,0);
-  const contaTipo = t => t==="Especiais"?winesAtivos.filter(w=>w.special).length:winesAtivos.filter(w=>w.style===t).length;
+  const contaTipo = t => t==="Especial"?winesAtivos.filter(w=>w.special).length:winesAtivos.filter(w=>w.style===t).length;
   const contaCasta = c => winesAtivos.filter(w=>getCastaFiltro(w.grapes)===c).length;
   const contaPais = p => winesAtivos.filter(w=>w.country===p).length;
 
@@ -1134,9 +1134,12 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
                       </div>
                       <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:12}}>{w.producer} · {w.vintage}</div>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                          <span style={{fontFamily:"'DM Sans'",fontSize:9,color:corTipo,background:corBg,padding:"3px 9px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>{isDeg?"Degustado":w.style}</span>
-                          {w.special&&<span style={{color:C.goldD,fontSize:11}}>★</span>}
+                        <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-start"}}>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:9,color:corTipo,background:corBg,padding:"3px 10px",borderRadius:3,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:500}}>{isDeg?"Degustado":w.style}</span>
+                          {!isDeg&&<button onClick={(e)=>{e.stopPropagation();update({...w,special:!w.special});}} style={{background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:13,color:w.special?C.gold:"rgba(125,98,56,0.4)",lineHeight:1}}>{w.special?"★":"☆"}</span>
+                            <span style={{fontFamily:"'DM Sans'",fontSize:9,color:w.special?C.goldD:"rgba(125,98,56,0.55)",letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:w.special?500:400}}>Especial</span>
+                          </button>}
                         </div>
                         {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={C.goldD} />}
                       </div>
@@ -1155,12 +1158,15 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
         <div style={{padding:"0 24px"}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>POR TIPO</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24}}>
-            {[{label:"Tinto",cor:C.wine},{label:"Branco",cor:C.goldD},{label:"Rose",cor:"#B05070"},{label:"Espumante",cor:C.green},{label:"Especiais",cor:C.goldD},{label:"Todos",cor:C.muted}].map(({label,cor})=>{
+            {[{label:"Tinto",cor:C.wine},{label:"Branco",cor:C.goldD},{label:"Rose",cor:"#B05070"},{label:"Espumante",cor:C.green},{label:"Especial",cor:C.gold,dark:true},{label:"Todos",cor:C.muted}].map(({label,cor,dark})=>{
               const count=label==="Todos"?winesAtivos.length:contaTipo(label);
               return (
-                <button key={label} onClick={()=>setFiltroAtivo(label)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"18px 16px",display:"flex",flexDirection:"column",cursor:"pointer",textAlign:"left",gap:6}}>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:cor}}>{label}</div>
-                  <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.06em"}}>{count} rótulo{count!==1?"s":""}</div>
+                <button key={label} onClick={()=>setFiltroAtivo(label)} style={{background:dark?"#1A1410":C.card,border:dark?"none":`1px solid ${C.border}`,borderRadius:8,padding:"18px 16px",display:"flex",flexDirection:"column",cursor:"pointer",textAlign:"left",gap:6}}>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:cor,display:"flex",alignItems:"baseline",gap:7}}>
+                    {dark&&<span style={{fontSize:14}}>★</span>}
+                    <span>{label}</span>
+                  </div>
+                  <div style={{fontFamily:"'DM Sans'",fontSize:9,color:dark?"rgba(242,237,226,0.7)":C.muted,letterSpacing:"0.06em"}}>{count} rótulo{count!==1?"s":""}</div>
                 </button>
               );
             })}
