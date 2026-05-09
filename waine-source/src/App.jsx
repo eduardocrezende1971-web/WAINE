@@ -450,6 +450,74 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
     } catch(e) { alert("Não foi possível completar a ficha. Tente novamente."); }
     setCompletando(false);
   };
+
+  // Refinamento cirúrgico de uma seção isolada da ficha
+  // 'campo' aceita: "historia" (Produtor), "regiao" (Região) ou "notas" (Vinho)
+  const [refinandoCampo, setRefinandoCampo] = useState(null);
+  const refinarSecao = async (campo) => {
+    setRefinandoCampo(campo);
+    try {
+      const labels = {
+        historia: "história/biografia do produtor (3-4 frases sofisticadas em português, sobre a vinícola, sua família, filosofia, momentos marcantes)",
+        regiao: "região vinícola (4-5 frases em português sobre terroir, clima, topografia, ventos, mar ou montanhas, solo e o que torna a região especial)",
+        notas: "notas de degustação como objeto JSON: { aromas: '1-2 linhas', paladar: '1-2 linhas', estrutura: '1 linha sobre taninos/acidez/corpo', guarda: '1 linha sobre potencial de guarda', harmonizacao: '1 linha sobre harmonização' }"
+      };
+      const r = await fetch("/api/claude", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          messages: [{
+            role: "user",
+            content: `Vinho: "${w.name}" do produtor "${w.producer}", safra ${w.vintage}, região ${w.region||"não informada"}, país ${w.country||"não informado"}.
+
+Sua tarefa: gerar SOMENTE o conteúdo do campo "${campo}" — ${labels[campo]}.
+
+REGRAS RÍGIDAS:
+- NÃO inclua nenhum outro campo na resposta.
+- NÃO retorne objetos com múltiplos campos (exceto para "notas" que JÁ É um objeto).
+- Se for "historia" ou "regiao": retorne APENAS uma string de texto, sem aspas ao redor, sem JSON.
+- Se for "notas": retorne APENAS um objeto JSON com as 5 chaves descritas acima.
+- Em hipótese alguma reescreva o nome do vinho, produtor, safra, ou outras informações. Apenas gere o ${campo}.`
+          }]
+        })
+      });
+      const data = await r.json();
+      const txt = data.content?.[0]?.text || "";
+      
+      let valor = null;
+      if (campo === "notas") {
+        try {
+          const m = txt.match(/\{[\s\S]*\}/);
+          if (m) valor = JSON.parse(m[0]);
+        } catch(e) { console.error("parse notas falhou", e); }
+      } else {
+        // Texto puro: limpar markdown, JSON wrappers, aspas externas
+        valor = txt.trim()
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "")
+          .replace(/^["']|["']$/g, "")
+          .trim();
+        // Se IA retornou um objeto JSON apesar das instruções, extrair só o campo
+        if (valor.startsWith("{")) {
+          try {
+            const obj = JSON.parse(valor);
+            valor = obj[campo] || valor;
+          } catch(e) {}
+        }
+      }
+      
+      if (valor) {
+        const atualizado = {...w, [campo]: valor};
+        onUpdate(atualizado);
+      } else {
+        alert("Não foi possível refinar esta seção. Tente novamente.");
+      }
+    } catch(e) {
+      console.error(e);
+      alert("Não foi possível refinar esta seção. Tente novamente.");
+    }
+    setRefinandoCampo(null);
+  };
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const save = () => { onUpdate(f); setEditing(false); setAiPrompt(""); setAiMsg(""); };
   const isDeg = w.bottles===0;
@@ -547,13 +615,23 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
         {(editing||w.historia)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>O PRODUTOR</div>
           {editing?<textarea value={f.historia||""} onChange={e=>set("historia",e.target.value)} rows={4} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.historia}</div>}
+            :<>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.historia}</div>
+              {!editing&&<button onClick={()=>refinarSecao("historia")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
+                <span>✦</span><span>{refinandoCampo==="historia"?"Refinando...":"Refinar produtor"}</span>
+              </button>}
+            </>}
         </div>}
 
         {(editing||w.regiao)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.green,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>A REGIÃO</div>
           {editing?<textarea value={f.regiao||""} onChange={e=>set("regiao",e.target.value)} rows={4} placeholder="Terroir, clima, topografia..." style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>}
+            :<>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>
+              {!editing&&<button onClick={()=>refinarSecao("regiao")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
+                <span>✦</span><span>{refinandoCampo==="regiao"?"Refinando...":"Refinar região"}</span>
+              </button>}
+            </>}
         </div>}
 
         {(editing||w.notas)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
@@ -566,14 +644,19 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
                 </div>
               ))}
             </div>
-            :<NotasTopicos notas={w.notas} />}
+            :<>
+              <NotasTopicos notas={w.notas} />
+              {!editing&&<button onClick={()=>refinarSecao("notas")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
+                <span>✦</span><span>{refinandoCampo==="notas"?"Refinando...":"Refinar notas"}</span>
+              </button>}
+            </>}
         </div>}
 
         {editing&&<div style={{marginBottom:20,padding:"18px",background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>✦ CORRIGIR COM IA</div>
           <textarea value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} rows={2} placeholder='ex: "Este vinho é da África do Sul, não da França."' style={{width:"100%",fontFamily:"'DM Sans'",fontSize:13,color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:"10px 12px",resize:"none",boxSizing:"border-box",marginBottom:10}} />
           <button onClick={corrigirIA} disabled={aibusy||!aiPrompt.trim()} style={{width:"100%",padding:"10px",background:C.goldD,border:"none",borderRadius:4,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",opacity:!aiPrompt.trim()?0.4:1}}>
-            {aibusy?"Corrigindo...":"Corrigir com IA"}
+            {aibusy?"Corrigindo...":"Refinar com IA"}
           </button>
           {aiMsg&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:aiMsg.startsWith("✓")?C.green:C.goldD,marginTop:8}}>{aiMsg}</div>}
         </div>}
