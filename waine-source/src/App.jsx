@@ -764,46 +764,34 @@ const TabAdega = ({ wines, setWines }) => {
               ?<div style={{textAlign:"center",padding:"72px 0",fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>Nenhum vinho encontrado</div>
               :winesFiltrados.map(w=>{
                 const isDeg=w.bottles===0;
+                const corTipo=isDeg?C.sepia:sAccent(w.style);
+                const corBg=isDeg?C.sepiaL:sLabel(w.style);
                 return (
-                  <div key={w.id} onClick={()=>setDetail(w)} style={{background:C.card,border:`1px solid ${isDeg?"rgba(122,92,58,0.2)":C.border}`,borderRadius:8,marginBottom:10,cursor:"pointer",overflow:"hidden"}}>
-                    {w.photos?.[0]&&(
-                      <div style={{position:"relative",height:160,overflow:"hidden"}}>
-                        <img src={w.photos[0]} style={{width:"100%",height:"100%",objectFit:"cover",filter:isDeg?"sepia(40%)":"none"}} />
-                        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 30%,rgba(26,20,16,0.75) 100%)"}} />
-                        <div style={{position:"absolute",bottom:14,left:16,right:16,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-                          <div>
-                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:"#fff",lineHeight:1.2}}>{w.name}</div>
-                            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:"rgba(255,255,255,0.55)"}}>{w.producer} · {w.vintage}</div>
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <span style={{fontSize:12}}>❤️</span>
-                            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:C.gold,fontWeight:300}}>{w.rating}</span>
-                          </div>
+                  <div key={w.id} onClick={()=>setDetail(w)} style={{background:C.card,border:`1px solid ${isDeg?"rgba(122,92,58,0.2)":C.border}`,borderRadius:10,marginBottom:10,cursor:"pointer",overflow:"hidden",display:"flex",alignItems:"stretch"}}>
+                    {/* Faixa lateral colorida — indica tipo */}
+                    <div style={{width:4,background:corTipo,flexShrink:0,opacity:isDeg?0.6:1}} />
+                    {/* Conteúdo principal */}
+                    <div style={{flex:1,padding:"14px 16px",minWidth:0}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:4}}>
+                        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:300,color:C.text,lineHeight:1.2,flex:1}}>{w.name}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                          <span style={{fontSize:11}}>❤️</span>
+                          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:isDeg?C.sepia:C.goldD,fontWeight:300,lineHeight:1}}>{w.rating}</span>
                         </div>
                       </div>
-                    )}
-                    <div style={{padding:"14px 16px"}}>
-                      {!w.photos?.[0]&&(
-                        <>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:3}}>
-                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,color:C.text,flex:1,paddingRight:8}}>{w.name}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:4}}>
-                              <span style={{fontSize:11}}>❤️</span>
-                              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:isDeg?C.sepia:C.goldD,fontWeight:300}}>{w.rating}</span>
-                            </div>
-                          </div>
-                          <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:10}}>{w.producer} · {w.vintage}</div>
-                        </>
-                      )}
+                      <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:12}}>{w.producer} · {w.vintage}</div>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                          <div style={{width:2,height:12,background:isDeg?C.sepia:C.goldD,borderRadius:1,opacity:0.5}} />
-                          <span style={{fontFamily:"'DM Sans'",fontSize:9,color:isDeg?C.sepia:C.goldD,background:isDeg?C.sepiaL:C.goldL,padding:"3px 9px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>{isDeg?"Degustado":w.style}</span>
+                          <span style={{fontFamily:"'DM Sans'",fontSize:9,color:corTipo,background:corBg,padding:"3px 9px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>{isDeg?"Degustado":w.style}</span>
                           {w.special&&<span style={{color:C.goldD,fontSize:11}}>★</span>}
                         </div>
                         {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={C.goldD} />}
                       </div>
                     </div>
+                    {/* Foto pequena à direita (se existir) */}
+                    {w.photos?.[0]&&(
+                      <img src={w.photos[0]} style={{width:70,objectFit:"cover",flexShrink:0,filter:isDeg?"sepia(40%)":"none"}} />
+                    )}
                   </div>
                 );
               })
@@ -908,10 +896,10 @@ export default function App() {
       <style>{G}</style>
       <style>{`*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{display:none}input,textarea,select{-webkit-appearance:none}::placeholder{color:#C4BAB0}body{background:#F7F3EE}`}</style>
 
-      {/* Header — fundo preto KV */}
+      {/* Header — fundo preto KV, símbolo cacho puro sem moldura */}
       <div style={{padding:"16px 24px 14px",borderBottom:"1px solid rgba(201,164,110,0.15)",background:"#0D0D0F",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src={ICONE_APP} alt="MEMORAVIN" style={{width:36,height:36,borderRadius:8,display:"block"}} />
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <IconeKV nome="adega" cor="#C9A46E" tamanho={24} />
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,letterSpacing:"0.18em",color:"#F2EDE2"}}>MEMORAVIN</span>
         </div>
         <div style={{fontFamily:"'DM Sans'",fontSize:8,color:"#C9A46E",letterSpacing:"0.18em",textTransform:"uppercase"}}>Adega & Memórias</div>
