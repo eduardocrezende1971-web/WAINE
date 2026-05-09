@@ -251,11 +251,10 @@ const TabMapa = ({ wines, onOpenWine }) => {
     return {pais, ...dados, pct};
   }).sort((a,b)=>b.garrafas-a.garrafas);
 
-  // Renderizar mapa com D3
+  // Renderizar mapa com D3, filtrando a Antártida
   useEffect(() => {
     if (!svgRef.current) return;
     if (!window.d3 || !window.topojson) {
-      // Carrega libs sob demanda (uma vez)
       const loadScript = (src) => new Promise((res, rej) => {
         if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
         const s = document.createElement("script");
@@ -276,17 +275,18 @@ const TabMapa = ({ wines, onOpenWine }) => {
       if (!container) return;
       container.innerHTML = "";
       const w = container.clientWidth || 360;
-      const h = 240;
+      const h = 200;
       const svg = d3.select(container).append("svg").attr("viewBox", `0 0 ${w} ${h}`).attr("width","100%").attr("height",h);
       const projection = d3.geoNaturalEarth1().scale(w/4.6).translate([w/2, h/2 + 4]);
       const path = d3.geoPath(projection);
       d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
         if (!world) return;
-        const countries = topojson.feature(world, world.objects.countries).features;
+        const todasCountries = topojson.feature(world, world.objects.countries).features;
+        // Filtrar Antártida (id 010 ou nome Antarctica)
+        const countries = todasCountries.filter(c => c.properties.name !== "Antarctica");
         svg.append("g").selectAll("path").data(countries).join("path")
           .attr("d", path).attr("fill", "#EFE8DA").attr("stroke", "#D6CFC4").attr("stroke-width", 0.4);
         countries.forEach(c => {
-          // Achar país brasileiro correspondente
           const paisPt = Object.keys(nomePtParaEn).find(pt => nomePtParaEn[pt] === c.properties.name);
           if (!paisPt) return;
           const dados = porPais[paisPt];
@@ -562,6 +562,8 @@ const SommelierModal = ({ wine, onClose, onUpdate }) => {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1500,
           messages: [{
             role: "user",
             content: `Você é um sommelier sofisticado e culto. O usuário tem o seguinte vinho na adega:
@@ -906,7 +908,7 @@ const AddWine = ({ onClose, onSave }) => {
           </div>
         ))}
 
-        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:"16px 18px",marginBottom:18,background:status.ok?C.green:C.gold,border:"none",borderRadius:8,color:"#FFFFFF",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",cursor:(!f.name||!f.producer)?"default":"pointer",fontWeight:300,opacity:(!f.name||!f.producer)?0.35:1}}>
+        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:"16px 18px",marginBottom:18,background:status.ok?"#2A6040":"#C9A46E",border:"none",borderRadius:8,color:"#FFFFFF",fontFamily:"'DM Sans', sans-serif",fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",cursor:(!f.name||!f.producer)?"default":"pointer",fontWeight:400,opacity:(!f.name||!f.producer)?0.5:1}}>
           {busy?"✦ Pesquisando...":status.ok?"✓ Ficha gerada":"✦ Gerar ficha com IA"}
         </button>
 
