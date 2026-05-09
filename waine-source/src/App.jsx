@@ -975,8 +975,16 @@ const AddWine = ({ onClose, onSave }) => {
 };
 
 // ── Tab Adega ──────────────────────────────────────────────────────────────────
-const TabAdega = ({ wines, setWines }) => {
+const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   const [detail, setDetail] = useState(null);
+  
+  // Quando o Mapa pede para abrir um vinho específico, abre direto na ficha
+  useEffect(()=>{
+    if (vinhoParaAbrir) {
+      setDetail(vinhoParaAbrir);
+      if (onAbriu) onAbriu();
+    }
+  }, [vinhoParaAbrir]);
   const [adding, setAdding] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState(null);
   const [search, setSearch] = useState("");
@@ -1140,6 +1148,7 @@ export default function App() {
   const [capa, setCapa] = useState(true);
   const [tab, setTab] = useState("adega");
   const [wines, setWines] = useState([]);
+  const [vinhoParaAbrir, setVinhoParaAbrir] = useState(null);
   const [vineyard] = useState(VINHO0);
   const [memories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1193,8 +1202,8 @@ export default function App() {
       </div>
 
       <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-        {tab==="adega"&&<TabAdega wines={wines} setWines={setWines} />}
-        {tab==="mapa"&&<TabMapa wines={wines} onOpenWine={()=>setTab("adega")} />}
+        {tab==="adega"&&<TabAdega wines={wines} setWines={setWines} vinhoParaAbrir={vinhoParaAbrir} onAbriu={()=>setVinhoParaAbrir(null)} />}
+        {tab==="mapa"&&<TabMapa wines={wines} onOpenWine={(w)=>{setVinhoParaAbrir(w);setTab("adega");}} />}
         {tab==="memorias"&&<TabMemorias wines={wines} />}
       </div>
 
