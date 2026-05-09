@@ -61,17 +61,21 @@ const getCastaFiltro = (grapes) => {
 const IconeKV = ({ nome, cor="#C9A46E", tamanho=22 }) => {
   const sw = 1.4; // stroke-width fino, editorial
   if (nome === "adega") {
-    // Cacho de uvas (mesma família do símbolo da logo)
+    // Símbolo MEMORAVIN: coração invertido (linhas finas) + cacho de bagas em pirâmide
     return (
-      <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke={cor} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3 L12 5.5" />
-        <circle cx="12" cy="8" r="2" />
-        <circle cx="9" cy="11.5" r="2" />
-        <circle cx="15" cy="11.5" r="2" />
-        <circle cx="12" cy="14.5" r="2" />
-        <circle cx="9.5" cy="17.5" r="2" />
-        <circle cx="14.5" cy="17.5" r="2" />
-        <circle cx="12" cy="20.5" r="2" />
+      <svg width={tamanho} height={tamanho} viewBox="0 0 48 64" fill="none" stroke={cor} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+        {/* Pedúnculo */}
+        <path d="M24 4 Q 23 5.5, 24 7 Q 25 8.5, 24 10" />
+        {/* Coração invertido formando topo do cacho — duas curvas que descem e se cruzam em V no centro */}
+        <path d="M24 11 C 18 11, 12 14, 12 21 C 12 26, 16 30, 20 32 Q 24 36, 24 36" />
+        <path d="M24 11 C 30 11, 36 14, 36 21 C 36 26, 32 30, 28 32 Q 24 36, 24 36" />
+        {/* Cacho de bagas — pirâmide invertida 3 (topo largo) - 2 - 1 */}
+        <circle cx="14" cy="38" r="5" />
+        <circle cx="24" cy="38" r="5" />
+        <circle cx="34" cy="38" r="5" />
+        <circle cx="19" cy="46" r="5" />
+        <circle cx="29" cy="46" r="5" />
+        <circle cx="24" cy="54" r="5" />
       </svg>
     );
   }
@@ -500,6 +504,67 @@ const Qty = ({ value, onChange, accent }) => (
   </div>
 );
 
+// ── Texto editorial truncado em 3 linhas com "... ler mais" inline ───────────
+const TextoTruncavel = ({ texto, linhas=3, fontSize=17, lineHeight=1.85 }) => {
+  const [expandido, setExpandido] = useState(false);
+  const ref = useRef(null);
+  const [precisaTruncar, setPrecisaTruncar] = useState(false);
+
+  useEffect(()=>{
+    if (!ref.current) return;
+    // Verifica se o texto tem mais linhas do que o limite
+    const el = ref.current;
+    // Mede altura real vs altura de N linhas
+    const lineHeightPx = parseFloat(getComputedStyle(el).lineHeight);
+    const alturaLimite = lineHeightPx * linhas;
+    setPrecisaTruncar(el.scrollHeight > alturaLimite + 2);
+  }, [texto, linhas]);
+
+  if (!texto) return null;
+
+  return (
+    <div>
+      <div
+        ref={ref}
+        style={{
+          fontFamily: "'Cormorant Garamond',serif",
+          fontSize,
+          fontStyle: "italic",
+          color: C.sub,
+          lineHeight,
+          overflow: "hidden",
+          display: (precisaTruncar && !expandido) ? "-webkit-box" : "block",
+          WebkitLineClamp: (precisaTruncar && !expandido) ? linhas : "unset",
+          WebkitBoxOrient: "vertical",
+          transition: "all 0.3s ease",
+        }}
+      >
+        {texto}
+      </div>
+      {precisaTruncar && (
+        <div style={{marginTop:6}}>
+          <button
+            onClick={()=>setExpandido(e=>!e)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontFamily: "'Cormorant Garamond',serif",
+              fontSize: fontSize - 2,
+              fontStyle: "italic",
+              color: C.goldD,
+              opacity: 0.85,
+            }}
+          >
+            {expandido ? "ler menos" : "… ler mais"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NotasTopicos = ({ notas }) => {
   if (!notas) return null;
   let topicos = null;
@@ -511,13 +576,15 @@ const NotasTopicos = ({ notas }) => {
         {Object.entries(topicos).map(([k,v])=>v?(
           <div key={k} style={{display:"flex",gap:12,alignItems:"flex-start"}}>
             <span style={{fontFamily:"'DM Sans'",fontSize:10,color:C.goldD,letterSpacing:"0.06em",minWidth:90,paddingTop:2,flexShrink:0}}>{labels[k]||k}</span>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,lineHeight:1.65,flex:1}}>{v}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <TextoTruncavel texto={v} linhas={2} fontSize={16} lineHeight={1.65} />
+            </div>
           </div>
         ):null)}
       </div>
     );
   }
-  return <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{notas}</div>;
+  return <TextoTruncavel texto={notas} />;
 };
 
 const VoiceButton = ({ onResult }) => {
@@ -818,13 +885,13 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
         {(editing||w.historia)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>O PRODUTOR</div>
           {editing?<textarea value={f.historia||""} onChange={e=>set("historia",e.target.value)} rows={4} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.historia}</div>}
+            :<TextoTruncavel texto={w.historia} />}
         </div>}
 
         {(editing||w.regiao)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.green,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>A REGIÃO</div>
           {editing?<textarea value={f.regiao||""} onChange={e=>set("regiao",e.target.value)} rows={4} placeholder="Terroir, clima, topografia..." style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>}
+            :<TextoTruncavel texto={w.regiao} />}
         </div>}
 
         {(editing||w.notas)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
@@ -1161,10 +1228,9 @@ export default function App() {
   const tabs=[{id:"adega",label:"Adega"},{id:"mapa",label:"Mapa"},{id:"memorias",label:"Memórias"}];
 
   if(loading) return (
-    <div style={{maxWidth:430,margin:"0 auto",height:"100vh",background:"#0D0D0F",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+    <div style={{maxWidth:430,margin:"0 auto",height:"100vh",background:"#0D0D0F",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <style>{G}</style>
-      <img src={ICONE_APP} alt="MEMORAVIN" style={{width:72,height:72,borderRadius:16,display:"block"}} />
-      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,letterSpacing:"0.25em",color:"#F2EDE2"}}>MEMORAVIN</div>
+      <IconeKV nome="adega" cor="#C9A46E" tamanho={56} />
     </div>
   );
 
