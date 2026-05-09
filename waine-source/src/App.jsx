@@ -208,75 +208,186 @@ const PAIS_COORDS = {
 };
 
 // ── Tab Mapa ───────────────────────────────────────────────────────────────────
-const TabMapa = ({ wines }) => {
-  const [tooltip, setTooltip] = useState(null);
+const TabMapa = ({ wines, onOpenWine }) => {
+  const svgRef = useRef(null);
+  const [sugestao, setSugestao] = useState(null); // null = não revelado, objeto = vinho sorteado
   const winesAtivos = wines.filter(w=>w.bottles>0);
-  const porPais = winesAtivos.reduce((acc,w)=>{
-    if(!w.country) return acc;
-    if(!acc[w.country]) acc[w.country]={rotulos:0,garrafas:0};
-    acc[w.country].rotulos+=1; acc[w.country].garrafas+=w.bottles; return acc;
-  },{});
-  const maxG = Math.max(...Object.values(porPais).map(p=>p.garrafas),1);
-  const getR = g => 16+((g/maxG)*20);
-  const comCoords = Object.entries(porPais).map(([pais,dados])=>({pais,...dados,coords:PAIS_COORDS[pais]||null})).filter(p=>p.coords);
+  const winesDeg = wines.filter(w=>w.bottles===0);
+  
+  // Agrupa por país
+  const porPais = {};
+  winesAtivos.forEach(w=>{
+    if(!w.country) return;
+    if(!porPais[w.country]) porPais[w.country]={rotulos:0,garrafas:0,status:"estoque"};
+    porPais[w.country].rotulos+=1;
+    porPais[w.country].garrafas+=w.bottles;
+  });
+  // Países só com memórias (sem estoque ativo)
+  winesDeg.forEach(w=>{
+    if(!w.country) return;
+    if(!porPais[w.country]) porPais[w.country]={rotulos:0,garrafas:0,memorias:1,status:"memoria"};
+    else porPais[w.country].memorias=(porPais[w.country].memorias||0)+1;
+  });
+
+  const totalGarrafas = winesAtivos.reduce((a,b)=>a+b.bottles,0);
+  const totalRotulos = winesAtivos.length;
+  const numPaises = Object.keys(porPais).filter(p=>porPais[p].rotulos>0).length;
+
+  // Mapeia nome PT → nome EN do topojson para casar dados
+  const nomePtParaEn = {
+    "África do Sul":"South Africa","Argentina":"Argentina","Austrália":"Australia","Áustria":"Austria",
+    "Brasil":"Brazil","Chile":"Chile","Espanha":"Spain","Estados Unidos":"United States of America",
+    "EUA":"United States of America","França":"France","Itália":"Italy","Nova Zelândia":"New Zealand",
+    "Portugal":"Portugal","Alemanha":"Germany","Uruguai":"Uruguay","Grécia":"Greece","Hungria":"Hungary",
+    "Geórgia":"Georgia","Líbano":"Lebanon","Israel":"Israel","Eslovênia":"Slovenia","Croácia":"Croatia"
+  };
+
+  // Lista de países "aspiracionais" (top 10 produtores) para distribuição
+  const paisesAspiracionais = ["França","Itália","Espanha","Argentina","Chile","Estados Unidos","Portugal","Alemanha","África do Sul","Austrália"];
+  const paisesParaListar = [...new Set([...Object.keys(porPais), ...paisesAspiracionais])];
+  const distribuicao = paisesParaListar.map(pais=>{
+    const dados = porPais[pais] || {rotulos:0,garrafas:0};
+    const pct = totalGarrafas>0 ? Math.round((dados.garrafas/totalGarrafas)*100) : 0;
+    return {pais, ...dados, pct};
+  }).sort((a,b)=>b.garrafas-a.garrafas);
+
+  // Renderizar mapa com D3
+  useEffect(() => {
+    if (!svgRef.current) return;
+    if (!window.d3 || !window.topojson) {
+      // Carrega libs sob demanda (uma vez)
+      const loadScript = (src) => new Promise((res, rej) => {
+        if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+        const s = document.createElement("script");
+        s.src = src; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      Promise.all([
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"),
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js")
+      ]).then(()=>renderMap()).catch(e=>console.error("Erro carregando D3",e));
+    } else {
+      renderMap();
+    }
+
+    function renderMap() {
+      const d3 = window.d3, topojson = window.topojson;
+      const container = svgRef.current;
+      if (!container) return;
+      container.innerHTML = "";
+      const w = container.clientWidth || 360;
+      const h = 240;
+      const svg = d3.select(container).append("svg").attr("viewBox", `0 0 ${w} ${h}`).attr("width","100%").attr("height",h);
+      const projection = d3.geoNaturalEarth1().scale(w/4.6).translate([w/2, h/2 + 4]);
+      const path = d3.geoPath(projection);
+      d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
+        if (!world) return;
+        const countries = topojson.feature(world, world.objects.countries).features;
+        svg.append("g").selectAll("path").data(countries).join("path")
+          .attr("d", path).attr("fill", "#EFE8DA").attr("stroke", "#D6CFC4").attr("stroke-width", 0.4);
+        countries.forEach(c => {
+          // Achar país brasileiro correspondente
+          const paisPt = Object.keys(nomePtParaEn).find(pt => nomePtParaEn[pt] === c.properties.name);
+          if (!paisPt) return;
+          const dados = porPais[paisPt];
+          if (!dados || (!dados.garrafas && !dados.memorias)) return;
+          const [x, y] = path.centroid(c);
+          const cor = (dados.garrafas > 0) ? "#C9A46E" : "#7A5C3A";
+          const valor = dados.garrafas || dados.memorias || 0;
+          svg.append("circle").attr("cx", x).attr("cy", y).attr("r", 16).attr("fill","none").attr("stroke", cor).attr("stroke-width", 0.6).attr("opacity", 0.4);
+          svg.append("circle").attr("cx", x).attr("cy", y).attr("r", 12).attr("fill", cor).attr("opacity", 0.95);
+          svg.append("text").attr("x", x).attr("y", y + 3.5).attr("text-anchor","middle").attr("font-family","Cormorant Garamond, serif").attr("font-size", 11).attr("font-weight", 500).attr("fill", "#FFFFFF").text(valor);
+        });
+      }).catch(e => console.error("Erro carregando mapa", e));
+    }
+  }, [wines]);
+
+  const sortear = () => {
+    if (winesAtivos.length === 0) return;
+    const idx = Math.floor(Math.random() * winesAtivos.length);
+    setSugestao(winesAtivos[idx]);
+  };
 
   return (
     <div style={{flex:1,overflowY:"auto",paddingBottom:90}}>
-      <div style={{padding:"32px 24px 20px"}}>
-        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:6}}>MAPA DA ADEGA</div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:300,color:C.text}}>{Object.keys(porPais).length} <span style={{color:C.muted,fontSize:24}}>países</span></div>
-        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginTop:4}}>{winesAtivos.reduce((a,b)=>a+b.bottles,0)} garrafas em estoque</div>
+      <div style={{padding:"32px 24px 14px"}}>
+        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:6}}>JORNADA</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:300,color:C.text,lineHeight:1}}>Mapa <span style={{color:C.muted,fontSize:22,fontStyle:"italic"}}>da adega</span></div>
+        <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginTop:6}}>{totalRotulos} rótulos · {numPaises} {numPaises===1?"país explorado":"países explorados"}</div>
       </div>
-      <div style={{padding:"0 16px",marginBottom:24}}>
-        <div style={{background:C.card,borderRadius:12,border:`1px solid ${C.border}`,overflow:"hidden"}}>
-          <svg viewBox="0 0 1000 500" style={{width:"100%",display:"block"}}>
-            <rect width="1000" height="500" fill="#EAE4DC"/>
-            <path d="M 80,80 L 260,80 L 280,130 L 260,180 L 220,200 L 200,240 L 180,260 L 150,250 L 120,220 L 90,180 L 70,140 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 180,260 L 220,260 L 230,300 L 210,310 L 190,290 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 220,300 L 320,300 L 340,320 L 330,380 L 310,420 L 280,440 L 250,430 L 230,400 L 220,360 L 210,330 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 430,100 L 560,100 L 570,160 L 550,200 L 510,210 L 470,205 L 440,190 L 420,160 L 425,130 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 460,80 L 530,70 L 540,100 L 490,110 L 460,100 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 450,220 L 580,220 L 590,280 L 570,360 L 540,410 L 510,420 L 490,410 L 470,370 L 450,310 L 440,260 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 560,80 L 850,70 L 870,120 L 840,160 L 780,170 L 720,160 L 660,150 L 600,140 L 570,120 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 560,160 L 640,160 L 650,210 L 620,230 L 580,220 L 555,200 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 660,160 L 720,160 L 730,230 L 700,270 L 670,250 L 650,210 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 720,120 L 860,120 L 870,180 L 840,210 L 790,220 L 750,210 L 720,190 L 710,160 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 770,340 L 900,330 L 920,380 L 900,430 L 850,450 L 800,440 L 770,400 L 760,370 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            <path d="M 900,410 L 915,410 L 920,440 L 905,445 L 898,430 Z" fill="#D4C8B8" stroke="#C4B8A8" strokeWidth="1"/>
-            {comCoords.map(({pais,garrafas,rotulos,coords})=>{
-              const r=getR(garrafas); const isSel=tooltip?.pais===pais;
-              return (
-                <g key={pais} style={{cursor:"pointer"}} onClick={()=>setTooltip(isSel?null:{pais,garrafas,rotulos,coords})}>
-                  <circle cx={coords.x} cy={coords.y} r={r} fill={isSel?"#9A7A4A":C.goldD} fillOpacity={0.85} stroke="#fff" strokeWidth="2"/>
-                  <text x={coords.x} y={coords.y} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={r>24?13:10} fontFamily="'Cormorant Garamond',serif" fontWeight="600">{garrafas}</text>
-                </g>
-              );
-            })}
-            {tooltip&&(
-              <g>
-                <rect x={Math.min(tooltip.coords.x+10,820)} y={tooltip.coords.y-42} width="165" height="54" rx="4" fill="#1A1410" fillOpacity="0.9"/>
-                <text x={Math.min(tooltip.coords.x+92,902)} y={tooltip.coords.y-22} textAnchor="middle" fill={C.gold} fontSize="10" fontFamily="'DM Sans'" fontWeight="500" letterSpacing="2">{tooltip.pais.toUpperCase()}</text>
-                <text x={Math.min(tooltip.coords.x+92,902)} y={tooltip.coords.y-4} textAnchor="middle" fill="#A89B8E" fontSize="10" fontFamily="'DM Sans'">{tooltip.rotulos} rótulo{tooltip.rotulos!==1?"s":""} · {tooltip.garrafas} garrafa{tooltip.garrafas!==1?"s":""}</text>
-              </g>
-            )}
-          </svg>
-        </div>
-        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,textAlign:"center",marginTop:8,letterSpacing:"0.08em"}}>Toque num país para ver detalhes</div>
-      </div>
-      <div style={{padding:"0 24px"}}>
-        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>POR PAÍS</div>
-        {Object.entries(porPais).sort((a,b)=>b[1].garrafas-a[1].garrafas).map(([pais,dados])=>(
-          <div key={pais} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"16px 18px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,color:C.text,marginBottom:2}}>{pais}</div>
-              <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted}}>{dados.rotulos} rótulo{dados.rotulos!==1?"s":""}</div>
+
+      {/* Mapa-mundi de borda a borda */}
+      <div style={{padding:"4px 0 12px"}}>
+        <div style={{background:C.card,padding:"14px 0 10px",borderTop:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`}}>
+          <div ref={svgRef} style={{width:"100%",minHeight:240}} />
+          <div style={{display:"flex",gap:16,justifyContent:"center",paddingTop:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:8,height:8,borderRadius:"50%",background:C.gold,display:"inline-block"}} />
+              <span style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase"}}>Em estoque</span>
             </div>
-            <div style={{width:38,height:38,borderRadius:"50%",background:C.goldL,border:`1px solid ${C.gold}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:C.goldD}}>{dados.garrafas}</span>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:8,height:8,borderRadius:"50%",background:C.sepia,display:"inline-block"}} />
+              <span style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase"}}>Memória</span>
             </div>
           </div>
-        ))}
-        {Object.keys(porPais).length===0&&<div style={{textAlign:"center",padding:"48px 0",fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>Adicione vinhos para ver o mapa</div>}
+        </div>
+      </div>
+
+      {/* Sugestão para hoje — compacta */}
+      {winesAtivos.length>0&&<div style={{padding:"16px 20px"}}>
+        {!sugestao ? (
+          <button onClick={sortear} style={{width:"100%",background:C.gold,border:"none",borderRadius:10,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,textAlign:"left"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"'DM Sans'",fontSize:8,color:"rgba(255,255,255,0.85)",letterSpacing:"0.22em",textTransform:"uppercase",marginBottom:4}}>✦ Sugestão para hoje</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:"rgba(255,255,255,0.9)",lineHeight:1.3}}>Toque e descubra</div>
+            </div>
+            <div style={{background:"rgba(255,255,255,0.18)",borderRadius:6,padding:"9px 16px",flexShrink:0}}>
+              <span style={{fontFamily:"'DM Sans'",fontSize:9,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase",fontWeight:300,whiteSpace:"nowrap"}}>✦ Revelar</span>
+            </div>
+          </button>
+        ) : (
+          <div style={{background:C.gold,borderRadius:10,padding:"16px 18px"}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:8,color:"rgba(255,255,255,0.85)",letterSpacing:"0.22em",textTransform:"uppercase",marginBottom:6}}>✦ Sua adega sugere</div>
+            <div onClick={()=>onOpenWine&&onOpenWine(sugestao)} style={{cursor:"pointer"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:300,color:"#FFFFFF",lineHeight:1.2,marginBottom:3}}>{sugestao.name}</div>
+              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:"rgba(255,255,255,0.75)",letterSpacing:"0.06em",textTransform:"uppercase"}}>{sugestao.country||""} {sugestao.vintage?"· "+sugestao.vintage:""} · você tem {sugestao.bottles}</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginTop:14,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.2)"}}>
+              <button onClick={sortear} style={{background:"none",border:"none",color:"rgba(255,255,255,0.9)",fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:6}}>
+                <span>↻</span><span>Sortear outro</span>
+              </button>
+              <button onClick={()=>onOpenWine&&onOpenWine(sugestao)} style={{background:"none",border:"none",color:"#FFFFFF",fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",padding:0,display:"flex",alignItems:"center",gap:6,fontWeight:500}}>
+                <span>Ver ficha</span><span>→</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>}
+
+      {/* Distribuição por país */}
+      <div style={{padding:"4px 24px 24px"}}>
+        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>DISTRIBUIÇÃO POR PAÍS</div>
+        {distribuicao.map(({pais,rotulos,garrafas,pct})=>{
+          const ativo = garrafas > 0;
+          return (
+            <div key={pais} style={{marginBottom:16,opacity:ativo?1:0.5}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,color:C.text,fontStyle:ativo?"normal":"italic"}}>{pais}</span>
+                <span style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.06em"}}>
+                  {ativo ? `${rotulos} ${rotulos===1?"rótulo":"rótulos"} · ${pct}%` : "— sem rótulos"}
+                </span>
+              </div>
+              <div style={{height:2,background:"rgba(201,164,110,0.12)",borderRadius:2,overflow:"hidden"}}>
+                {ativo && <div style={{height:"100%",width:`${pct}%`,background:C.gold}} />}
+              </div>
+            </div>
+          );
+        })}
+        {numPaises>=2 && numPaises<=4 && (
+          <div style={{marginTop:24,padding:"14px 16px",background:"rgba(122,92,58,0.06)",borderLeft:`2px solid ${C.sepia}`}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5}}>"Sua jornada está começando a se desdobrar pelo mundo."</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -430,6 +541,164 @@ const VoiceButton = ({ onResult }) => {
 };
 
 // ── Wine Detail ────────────────────────────────────────────────────────────────
+
+// ── Sommelier — modal de pergunta livre + IA classifica em qual seção adicionar ──
+const SommelierModal = ({ wine, onClose, onUpdate }) => {
+  const [pergunta, setPergunta] = useState("");
+  const [resposta, setResposta] = useState("");
+  const [secaoSugerida, setSecaoSugerida] = useState(null); // "historia"|"regiao"|"notas"
+  const [loading, setLoading] = useState(false);
+  const [adicionando, setAdicionando] = useState(false);
+  const [adicionado, setAdicionado] = useState(false);
+
+  const perguntar = async () => {
+    if (!pergunta.trim()) return;
+    setLoading(true);
+    setResposta("");
+    setSecaoSugerida(null);
+    setAdicionado(false);
+    try {
+      const r = await fetch("/api/claude", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          messages: [{
+            role: "user",
+            content: `Você é um sommelier sofisticado e culto. O usuário tem o seguinte vinho na adega:
+
+Nome: "${wine.name}"
+Produtor: "${wine.producer}"
+Safra: ${wine.vintage}
+Região: ${wine.region||"não informada"}
+País: ${wine.country||"não informado"}
+Tipo: ${wine.style||"não informado"}
+
+Pergunta do usuário: "${pergunta}"
+
+Responda à pergunta de forma elegante, culta e em português brasileiro, em 3-6 frases. Use linguagem editorial, sofisticada, sem clichês. Não use listas nem markdown.
+
+Depois da sua resposta, em uma linha separada no FINAL, classifique em qual seção da ficha do vinho a resposta deveria ser adicionada caso o usuário queira:
+- "historia" se for sobre o produtor/vinícola/família/filosofia
+- "regiao" se for sobre região/terroir/clima/solo
+- "notas" se for sobre aromas/paladar/harmonização/guarda
+
+Formato OBRIGATÓRIO da resposta:
+[texto da resposta em prosa, 3-6 frases]
+
+##SECAO## [historia|regiao|notas]`
+          }]
+        })
+      });
+      const data = await r.json();
+      const txt = data.content?.[0]?.text || "";
+      const partes = txt.split(/##SECAO##/i);
+      const respostaTexto = partes[0].trim();
+      const secao = (partes[1]||"").trim().toLowerCase().replace(/[^a-z]/g,"");
+      const secaoValida = ["historia","regiao","notas"].includes(secao) ? secao : "historia";
+      setResposta(respostaTexto);
+      setSecaoSugerida(secaoValida);
+    } catch(e) {
+      console.error(e);
+      setResposta("Não foi possível obter resposta. Tente novamente.");
+    }
+    setLoading(false);
+  };
+
+  const adicionar = () => {
+    if (!resposta || !secaoSugerida) return;
+    setAdicionando(true);
+    if (secaoSugerida === "notas") {
+      // Adiciona à harmonização ou paladar como linha extra
+      const notasObj = (typeof wine.notas === "object" && wine.notas) ? wine.notas : {aromas:"",paladar:"",estrutura:"",guarda:"",harmonizacao:""};
+      notasObj.harmonizacao = (notasObj.harmonizacao ? notasObj.harmonizacao + " — " : "") + resposta;
+      onUpdate({...wine, notas: notasObj});
+    } else {
+      const textoAtual = wine[secaoSugerida] || "";
+      const novo = textoAtual ? textoAtual + "\n\n" + resposta : resposta;
+      onUpdate({...wine, [secaoSugerida]: novo});
+    }
+    setAdicionado(true);
+    setTimeout(()=>setAdicionando(false), 400);
+  };
+
+  const novaPergunta = () => {
+    setPergunta("");
+    setResposta("");
+    setSecaoSugerida(null);
+    setAdicionado(false);
+  };
+
+  const labelSecao = secaoSugerida === "historia" ? "O Produtor" : secaoSugerida === "regiao" ? "A Região" : "O Vinho";
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(13,13,15,0.65)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:C.bg,borderTopLeftRadius:20,borderTopRightRadius:20,width:"100%",maxWidth:430,maxHeight:"85vh",overflowY:"auto",padding:"28px 24px calc(24px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 32px rgba(0,0,0,0.18)"}}>
+        
+        {/* Cabeçalho */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+          <IconeKV nome="adega" cor={C.gold} tamanho={22} />
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,color:C.text,letterSpacing:"0.04em"}}>Sommelier</span>
+        </div>
+        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:24}}>{wine.name}{wine.vintage?` · ${wine.vintage}`:""}</div>
+
+        {!resposta && !loading && (
+          <>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,marginBottom:14,lineHeight:1.5}}>
+              O que você gostaria de saber?
+            </div>
+            <textarea
+              value={pergunta}
+              onChange={e=>setPergunta(e.target.value)}
+              placeholder='ex: O que significa o nome desta vinícola? Com que pratos harmoniza?'
+              autoFocus
+              rows={4}
+              style={{width:"100%",padding:"14px 16px",background:C.card,border:`1px solid rgba(201,164,110,0.3)`,borderRadius:8,fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:C.text,outline:"none",resize:"vertical",boxSizing:"border-box",fontStyle:"italic",lineHeight:1.5}}
+            />
+            <button onClick={perguntar} disabled={!pergunta.trim()} style={{width:"100%",background:pergunta.trim()?C.gold:C.muted,opacity:pergunta.trim()?1:0.4,border:"none",borderRadius:8,padding:"15px",marginTop:14,cursor:pergunta.trim()?"pointer":"default",fontFamily:"'DM Sans'",fontSize:11,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase",fontWeight:300}}>
+              Perguntar
+            </button>
+          </>
+        )}
+
+        {loading && (
+          <div style={{padding:"40px 0",textAlign:"center"}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.muted}}>Consultando o sommelier...</div>
+          </div>
+        )}
+
+        {resposta && !loading && (
+          <>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:8}}>Você perguntou</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontStyle:"italic",color:C.text,marginBottom:18,paddingLeft:12,borderLeft:`2px solid ${C.gold}`,lineHeight:1.4}}>{pergunta}</div>
+            
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:8}}>Resposta</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,lineHeight:1.7,marginBottom:24,whiteSpace:"pre-wrap"}}>{resposta}</div>
+
+            {!adicionado && (
+              <button onClick={adicionar} disabled={adicionando} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"14px",marginBottom:8,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:"#FFFFFF",letterSpacing:"0.2em",textTransform:"uppercase",fontWeight:300,opacity:adicionando?0.6:1}}>
+                {adicionando ? "Adicionando..." : `✦ Adicionar a "${labelSecao}"`}
+              </button>
+            )}
+            {adicionado && (
+              <div style={{padding:"12px",background:"rgba(42,96,64,0.1)",borderRadius:8,marginBottom:8,textAlign:"center"}}>
+                <span style={{fontFamily:"'DM Sans'",fontSize:10,color:C.green,letterSpacing:"0.18em",textTransform:"uppercase"}}>✓ Adicionado à ficha</span>
+              </div>
+            )}
+
+            <button onClick={novaPergunta} style={{width:"100%",background:"none",border:`1px solid rgba(201,164,110,0.4)`,borderRadius:8,padding:"12px",marginBottom:6,cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:C.goldD,letterSpacing:"0.2em",textTransform:"uppercase",fontWeight:300}}>
+              Fazer outra pergunta
+            </button>
+          </>
+        )}
+
+        <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"12px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase",marginTop:6}}>
+          Fechar
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState(false);
   const [f, setF] = useState({...w});
@@ -438,6 +707,7 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
   const [aiMsg, setAiMsg] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [completando, setCompletando] = useState(false);
+  const [sommelierAberto, setSommelierAberto] = useState(false);
 
   // Verifica se a ficha está incompleta (falta produtor, região ou notas)
   const fichaIncompleta = !w.historia || !w.regiao || !w.notas || (typeof w.notas==="object" && !Object.values(w.notas||{}).some(v=>v));
@@ -451,73 +721,6 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
     setCompletando(false);
   };
 
-  // Refinamento cirúrgico de uma seção isolada da ficha
-  // 'campo' aceita: "historia" (Produtor), "regiao" (Região) ou "notas" (Vinho)
-  const [refinandoCampo, setRefinandoCampo] = useState(null);
-  const refinarSecao = async (campo) => {
-    setRefinandoCampo(campo);
-    try {
-      const labels = {
-        historia: "história/biografia do produtor (3-4 frases sofisticadas em português, sobre a vinícola, sua família, filosofia, momentos marcantes)",
-        regiao: "região vinícola (4-5 frases em português sobre terroir, clima, topografia, ventos, mar ou montanhas, solo e o que torna a região especial)",
-        notas: "notas de degustação como objeto JSON: { aromas: '1-2 linhas', paladar: '1-2 linhas', estrutura: '1 linha sobre taninos/acidez/corpo', guarda: '1 linha sobre potencial de guarda', harmonizacao: '1 linha sobre harmonização' }"
-      };
-      const r = await fetch("/api/claude", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          messages: [{
-            role: "user",
-            content: `Vinho: "${w.name}" do produtor "${w.producer}", safra ${w.vintage}, região ${w.region||"não informada"}, país ${w.country||"não informado"}.
-
-Sua tarefa: gerar SOMENTE o conteúdo do campo "${campo}" — ${labels[campo]}.
-
-REGRAS RÍGIDAS:
-- NÃO inclua nenhum outro campo na resposta.
-- NÃO retorne objetos com múltiplos campos (exceto para "notas" que JÁ É um objeto).
-- Se for "historia" ou "regiao": retorne APENAS uma string de texto, sem aspas ao redor, sem JSON.
-- Se for "notas": retorne APENAS um objeto JSON com as 5 chaves descritas acima.
-- Em hipótese alguma reescreva o nome do vinho, produtor, safra, ou outras informações. Apenas gere o ${campo}.`
-          }]
-        })
-      });
-      const data = await r.json();
-      const txt = data.content?.[0]?.text || "";
-      
-      let valor = null;
-      if (campo === "notas") {
-        try {
-          const m = txt.match(/\{[\s\S]*\}/);
-          if (m) valor = JSON.parse(m[0]);
-        } catch(e) { console.error("parse notas falhou", e); }
-      } else {
-        // Texto puro: limpar markdown, JSON wrappers, aspas externas
-        valor = txt.trim()
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```$/, "")
-          .replace(/^["']|["']$/g, "")
-          .trim();
-        // Se IA retornou um objeto JSON apesar das instruções, extrair só o campo
-        if (valor.startsWith("{")) {
-          try {
-            const obj = JSON.parse(valor);
-            valor = obj[campo] || valor;
-          } catch(e) {}
-        }
-      }
-      
-      if (valor) {
-        const atualizado = {...w, [campo]: valor};
-        onUpdate(atualizado);
-      } else {
-        alert("Não foi possível refinar esta seção. Tente novamente.");
-      }
-    } catch(e) {
-      console.error(e);
-      alert("Não foi possível refinar esta seção. Tente novamente.");
-    }
-    setRefinandoCampo(null);
-  };
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const save = () => { onUpdate(f); setEditing(false); setAiPrompt(""); setAiMsg(""); };
   const isDeg = w.bottles===0;
@@ -547,9 +750,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
       <Lightbox url={lightbox} onClose={()=>setLightbox(null)} />
       <div style={{position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"16px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10}}>
         <button onClick={onBack} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.12em",color:C.muted,cursor:"pointer",padding:0}}>← ADEGA</button>
-        <button onClick={()=>editing?save():setEditing(true)} style={{background:editing?C.goldD:"none",border:`1px solid ${editing?C.goldD:C.border}`,borderRadius:4,padding:"7px 18px",fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.1em",color:editing?"#fff":C.muted,cursor:"pointer"}}>
-          {editing?"SALVAR":"EDITAR"}
-        </button>
+        {editing && <button onClick={save} style={{background:C.goldD,border:`1px solid ${C.goldD}`,borderRadius:4,padding:"7px 18px",fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.1em",color:"#fff",cursor:"pointer"}}>SALVAR</button>}
         {!editing&&<button onClick={()=>{if(window.confirm("Remover este vinho?"))onDelete(w.id);}} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:4,padding:"7px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.muted,cursor:"pointer"}}>🗑</button>}
       </div>
       <div style={{padding:"32px 24px 100px"}}>
@@ -615,23 +816,13 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
         {(editing||w.historia)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>O PRODUTOR</div>
           {editing?<textarea value={f.historia||""} onChange={e=>set("historia",e.target.value)} rows={4} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.historia}</div>
-              {!editing&&<button onClick={()=>refinarSecao("historia")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
-                <span>✦</span><span>{refinandoCampo==="historia"?"Refinando...":"Refinar produtor"}</span>
-              </button>}
-            </>}
+            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.historia}</div>}
         </div>}
 
         {(editing||w.regiao)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.green,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:12}}>A REGIÃO</div>
           {editing?<textarea value={f.regiao||""} onChange={e=>set("regiao",e.target.value)} rows={4} placeholder="Terroir, clima, topografia..." style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card2,outline:"none",padding:10,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-            :<>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>
-              {!editing&&<button onClick={()=>refinarSecao("regiao")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
-                <span>✦</span><span>{refinandoCampo==="regiao"?"Refinando...":"Refinar região"}</span>
-              </button>}
-            </>}
+            :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>{w.regiao}</div>}
         </div>}
 
         {(editing||w.notas)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
@@ -644,12 +835,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
                 </div>
               ))}
             </div>
-            :<>
-              <NotasTopicos notas={w.notas} />
-              {!editing&&<button onClick={()=>refinarSecao("notas")} disabled={refinandoCampo!==null} style={{marginTop:14,background:"none",border:"none",padding:0,color:C.goldD,fontFamily:"'DM Sans'",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",cursor:refinandoCampo?"default":"pointer",opacity:refinandoCampo?0.4:0.8,display:"flex",alignItems:"center",gap:6}}>
-                <span>✦</span><span>{refinandoCampo==="notas"?"Refinando...":"Refinar notas"}</span>
-              </button>}
-            </>}
+            :<NotasTopicos notas={w.notas} />}
         </div>}
 
         {editing&&<div style={{marginBottom:20,padding:"18px",background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
@@ -660,7 +846,23 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
           </button>
           {aiMsg&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:aiMsg.startsWith("✓")?C.green:C.goldD,marginTop:8}}>{aiMsg}</div>}
         </div>}
+
+        {/* AÇÕES NO RODAPÉ — Pergunte ao Sommelier + Editar Ficha (modo visualização) */}
+        {!editing && (
+          <div style={{marginTop:32,paddingTop:24,borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>setSommelierAberto(true)} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"18px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              <span style={{color:"#FFFFFF",fontSize:14,opacity:0.95}}>✦</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase"}}>Pergunte ao sommelier</span>
+            </button>
+            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.4)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase"}}>Editar ficha</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Modal Sommelier */}
+      {sommelierAberto && <SommelierModal wine={w} onClose={()=>setSommelierAberto(false)} onUpdate={onUpdate} />}
     </div>
   );
 };
@@ -704,7 +906,7 @@ const AddWine = ({ onClose, onSave }) => {
           </div>
         ))}
 
-        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:14,marginBottom:18,background:status.ok?C.greenL:C.goldL,border:`1px solid ${status.ok?C.green:C.goldD}`,borderRadius:6,color:status.ok?C.green:C.goldD,fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",opacity:(!f.name||!f.producer)?0.35:1}}>
+        <button onClick={enrich} disabled={busy||!f.name||!f.producer} style={{width:"100%",padding:"16px 18px",marginBottom:18,background:status.ok?C.green:C.gold,border:"none",borderRadius:8,color:"#FFFFFF",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",cursor:(!f.name||!f.producer)?"default":"pointer",fontWeight:300,opacity:(!f.name||!f.producer)?0.35:1}}>
           {busy?"✦ Pesquisando...":status.ok?"✓ Ficha gerada":"✦ Gerar ficha com IA"}
         </button>
 
@@ -990,7 +1192,7 @@ export default function App() {
 
       <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
         {tab==="adega"&&<TabAdega wines={wines} setWines={setWines} />}
-        {tab==="mapa"&&<TabMapa wines={wines} />}
+        {tab==="mapa"&&<TabMapa wines={wines} onOpenWine={()=>setTab("adega")} />}
         {tab==="memorias"&&<TabMemorias wines={wines} />}
       </div>
 
