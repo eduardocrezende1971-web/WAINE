@@ -1068,19 +1068,36 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
           :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:36,fontWeight:300,color:C.text,lineHeight:1.1,marginBottom:6}}>{w.name}</div>}
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,marginBottom:32}}>{w.producer}, {w.vintage}</div>
 
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:32}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:26}}>❤️</span>
-            {editing?<input type="number" min={0} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:accent,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
-              :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:64,color:accent,fontWeight:300,lineHeight:1}}>{w.rating}</div>}
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:26}}>❤️</span>
+              {editing?<input type="number" min={0} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:accent,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
+                :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:64,color:accent,fontWeight:300,lineHeight:1}}>{w.rating}</div>}
+            </div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:13,fontStyle:"italic",color:C.muted,paddingLeft:40,marginTop:-2}}>Nota da experiência</div>
           </div>
           {!w.isChild && (
-            <div style={{textAlign:"right"}}>
+            <div style={{textAlign:"right",paddingTop:6}}>
               <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:8}}>GARRAFAS</div>
               <Qty value={editing?f.bottles:w.bottles} onChange={v=>{set("bottles",v);if(!editing)onUpdate({...w,bottles:v});}} accent={accent} />
             </div>
           )}
         </div>
+
+        {/* ── AÇÕES PRINCIPAIS: Sommelier + Editar Ficha (só no modo visualização) ── */}
+        {!editing && (
+          <div style={{display:"flex",gap:10,marginBottom:32}}>
+            <button onClick={()=>setSommelierAberto(true)} style={{flex:1,background:C.gold,border:"none",borderRadius:8,padding:"14px 12px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{color:"#FFFFFF",fontSize:13,opacity:0.95}}>✦</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.2em",textTransform:"uppercase"}}>Sommelier</span>
+            </button>
+            <button onClick={()=>setEditing(true)} style={{flex:1,background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"14px 12px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{fontSize:12,color:C.goldD,opacity:0.85}}>✏</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.2em",textTransform:"uppercase"}}>Editar ficha</span>
+            </button>
+          </div>
+        )}
 
         {editing&&<div style={{marginBottom:28}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:8}}>❤️ EMOÇÃO — {f.rating}</div>
@@ -1172,18 +1189,6 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
             :<NotasTopicos notas={w.notas} />}
         </div>}
 
-        {/* AÇÕES NO RODAPÉ — Pergunte ao Sommelier + Editar Ficha (modo visualização) */}
-        {!editing && (
-          <div style={{marginTop:32,paddingTop:24,borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:10}}>
-            <button onClick={()=>setSommelierAberto(true)} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"18px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-              <span style={{color:"#FFFFFF",fontSize:14,opacity:0.95}}>✦</span>
-              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase"}}>Pergunte ao sommelier</span>
-            </button>
-            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase"}}>Editar ficha</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Modal Sommelier */}
