@@ -69,41 +69,6 @@ const getCastaFiltro = (grapes) => {
 
 
 // ── Ícones SVG no estilo do KV (linha fina dourada) ──────────────────────────
-// ── Migração silenciosa: garante que cada vinho tem os novos campos ────────────
-// Antigo: w.memory + w.photos (genéricos)
-// Novo:   w.memoryCompra + w.photosCompra + w.memoryDegustacao + w.photosDegustacao
-//         w.vinhoOrigemId (se for memória de degustação criada por baixa)
-//         w.dataDegustacao (se for memória de degustação)
-//         w.degustacao (boolean — true se essa entrada é uma memória degustada)
-const migrarVinho = (w) => {
-  // Se já tem os campos novos, não toca
-  if (typeof w.memoryCompra !== "undefined" || typeof w.memoryDegustacao !== "undefined") {
-    return w;
-  }
-  
-  const out = {...w};
-  
-  // Migração baseada no estado: bottles===0 significa que era um vinho já degustado no modelo antigo
-  if (w.bottles === 0) {
-    // Vinho degustado no modelo antigo: o memory era da degustação
-    out.degustacao = true;
-    out.memoryDegustacao = w.memory || "";
-    out.photosDegustacao = (w.photos || []).slice(0, 3);
-    out.memoryCompra = ""; // não tinha esse conceito antes
-    out.photosCompra = [];
-    out.dataDegustacao = w.date || w.dataDegustacao || null;
-  } else {
-    // Vinho em estoque: o memory era da compra
-    out.degustacao = false;
-    out.memoryCompra = w.memory || "";
-    out.photosCompra = (w.photos || []).slice(0, 3);
-    out.memoryDegustacao = "";
-    out.photosDegustacao = [];
-  }
-  
-  return out;
-};
-
 const IconeKV = ({ nome, cor="#C9A46E", tamanho=22 }) => {
   const sw = 1.4; // stroke-width fino, editorial
   if (nome === "adega") {
@@ -261,8 +226,8 @@ const PAIS_COORDS = {
 const TabMapa = ({ wines, onOpenWine }) => {
   const svgRef = useRef(null);
   const [sugestao, setSugestao] = useState(null); // null = não revelado, objeto = vinho sorteado
-  const winesAtivos = wines.filter(w=>w.bottles>0 && !w.degustacao);
-  const winesDeg = wines.filter(w=>w.bottles===0 || w.degustacao);
+  const winesAtivos = wines.filter(w=>w.bottles>0);
+  const winesDeg = wines.filter(w=>w.bottles===0);
   
   // Agrupa por país
   const porPais = {};
@@ -447,7 +412,7 @@ const TabMapa = ({ wines, onOpenWine }) => {
 const TabMemorias = ({ wines }) => {
   const [detail, setDetail] = useState(null);
   const [lightbox, setLightbox] = useState(null);
-  const top20 = [...wines].filter(w=>(w.memoryDegustacao||w.memoryCompra)&&w.rating>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,20);
+  const top20 = [...wines].filter(w=>w.memory&&w.rating>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,20);
 
   if (detail) {
     const w = detail;
@@ -458,7 +423,22 @@ const TabMemorias = ({ wines }) => {
           <button onClick={()=>setDetail(null)} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.12em",color:C.muted,cursor:"pointer",padding:0}}>← MEMÓRIAS</button>
         </div>
         <div style={{padding:"32px 24px 80px"}}>
-
+          {w.photos?.length>0&&(
+            <div style={{margin:"0 -24px 28px",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
+              <div style={{display:"flex",gap:10,padding:"0 24px"}}>
+                {w.photos.map((p,i)=>(
+                  <img key={i} src={cldUrl(p,800)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:240,minWidth:w.photos.length===1?"100%":"75%",objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,cursor:"zoom-in",scrollSnapAlign:"start",flexShrink:0}} />
+                ))}
+              </div>
+              {w.photos.length>1&&(
+                <div style={{display:"flex",justifyContent:"center",gap:5,marginTop:10}}>
+                  {w.photos.map((_,i)=>(
+                    <span key={i} style={{width:5,height:5,borderRadius:"50%",background:i===0?C.gold:"rgba(125,98,56,0.25)",display:"inline-block"}} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:8}}>
             <span style={{fontSize:22}}>❤️</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:52,fontWeight:300,color:C.goldD,lineHeight:1}}>{w.rating}</span>
@@ -466,41 +446,10 @@ const TabMemorias = ({ wines }) => {
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:300,color:C.text,marginBottom:4}}>{w.name}</div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.sub,marginBottom:20}}>{w.producer} · {w.vintage}</div>
           {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:24}}>📍 {w.location} · {w.date}</div>}
-          {w.memoryCompra && (
-            <div style={{background:C.card,borderRadius:8,padding:"22px",border:`1px solid ${C.border}`,marginBottom:14}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA DA COMPRA</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>"{w.memoryCompra}"</div>
-              {w.photosCompra?.length>0&&(
-                <div style={{margin:"14px -22px -8px",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch"}}>
-                  <div style={{display:"flex",gap:8,padding:"0 22px"}}>
-                    {w.photosCompra.map((p,i)=>(
-                      <img key={i} src={cldUrl(p,600)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:160,minWidth:w.photosCompra.length===1?"100%":"70%",objectFit:"cover",borderRadius:6,cursor:"zoom-in",flexShrink:0}} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {w.memoryDegustacao && (
-            <div style={{background:C.card,borderRadius:8,padding:"22px",border:`1px solid ${C.border}`}}>
-              <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.sepia,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA DA DEGUSTAÇÃO</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>"{w.memoryDegustacao}"</div>
-              {w.photosDegustacao?.length>0&&(
-                <div style={{margin:"14px -22px -8px",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch"}}>
-                  <div style={{display:"flex",gap:8,padding:"0 22px"}}>
-                    {w.photosDegustacao.map((p,i)=>(
-                      <img key={i} src={cldUrl(p,600)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:160,minWidth:w.photosDegustacao.length===1?"100%":"70%",objectFit:"cover",borderRadius:6,cursor:"zoom-in",flexShrink:0,filter:"sepia(15%)"}} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {!w.memoryCompra && !w.memoryDegustacao && (
-            <div style={{background:C.card,borderRadius:8,padding:"22px",border:`1px solid ${C.border}`,textAlign:"center"}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.muted,lineHeight:1.6}}>Memória ainda não registrada</div>
-            </div>
-          )}
+          <div style={{background:C.card,borderRadius:8,padding:"22px",border:`1px solid ${C.border}`}}>
+            <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontStyle:"italic",color:C.sub,lineHeight:1.85}}>"{w.memory}"</div>
+          </div>
         </div>
       </div>
     );
@@ -529,10 +478,10 @@ const TabMemorias = ({ wines }) => {
             <div style={{flex:1,padding:"14px 16px",minWidth:0}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:300,color:C.text,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.name}</div>
               <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:8}}>{w.producer} · {w.vintage}</div>
-              {(w.memoryDegustacao||w.memoryCompra)&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{w.memoryDegustacao||w.memoryCompra}"</div>}
+              {w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{w.memory}"</div>}
               {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:6}}>📍 {w.location}</div>}
             </div>
-            {(w.photosDegustacao?.[0]||w.photosCompra?.[0])&&<img src={cldUrl(w.photosDegustacao?.[0]||w.photosCompra?.[0],128)} loading="lazy" style={{width:64,objectFit:"cover",flexShrink:0}} />}
+            {w.photos?.[0]&&<img src={cldUrl(w.photos[0],128)} loading="lazy" style={{width:64,objectFit:"cover",flexShrink:0}} />}
           </div>
         ))}
       </div>
@@ -911,7 +860,14 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
             <span style={{fontFamily:"'DM Sans'",fontSize:10,color:C.sepia,letterSpacing:"0.1em",textTransform:"uppercase"}}>Degustado · Memória preservada</span>
           </div>
         )}
-<div style={{width:24,height:1,background:C.gold,marginBottom:24,opacity:0.4}} />
+        {editing?<PhotoUploader photos={f.photos||[]} onChange={v=>set("photos",v)} />
+          :f.photos?.length>0&&(
+            <div style={{display:"flex",gap:12,marginBottom:32}}>
+              {f.photos.map((url,i)=><img key={i} src={cldUrl(url,260)} loading="lazy" onClick={()=>setLightbox(url)} style={{width:128,height:170,objectFit:"cover",borderRadius:6,border:`1px solid ${C.border}`,filter:isDeg?"sepia(40%)":"none",cursor:"zoom-in"}} />)}
+            </div>
+          )
+        }
+        <div style={{width:24,height:1,background:C.gold,marginBottom:24,opacity:0.4}} />
         <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase",marginBottom:8}}>{w.style} · {w.country}</div>
         {editing?<input value={f.name} onChange={e=>set("name",e.target.value)} style={{width:"100%",fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:300,color:C.text,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none",marginBottom:8,boxSizing:"border-box"}} />
           :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:36,fontWeight:300,color:C.text,lineHeight:1.1,marginBottom:6}}>{w.name}</div>}
@@ -944,54 +900,12 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
           ))}
         </div>
 
-        {/* ─── MEMÓRIA DA COMPRA ─── */}
-        <div style={{marginBottom:isDeg?32:24}}>
-          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA DA COMPRA</div>
-          {editing?<>
-            <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:14}}>
-              <textarea value={f.memoryCompra||""} onChange={e=>set("memoryCompra",e.target.value)} rows={4} placeholder="Onde comprou, em que viagem, quem indicou..." style={{flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-              <VoiceButton onResult={txt=>set("memoryCompra",(f.memoryCompra?f.memoryCompra+" ":"")+txt)} />
-            </div>
-            <PhotoUploader photos={f.photosCompra||[]} onChange={v=>set("photosCompra",v)} max={3} />
-          </>
-          :<>
-            {w.memoryCompra&&<TextoTruncavel texto={w.memoryCompra} fontSize={18} />}
-            {w.photosCompra?.length>0&&(
-              <div style={{margin:"14px -24px 0",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
-                <div style={{display:"flex",gap:10,padding:"0 24px"}}>
-                  {w.photosCompra.map((p,i)=>(
-                    <img key={i} src={cldUrl(p,800)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:200,minWidth:w.photosCompra.length===1?"100%":"75%",objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,cursor:"zoom-in",scrollSnapAlign:"start",flexShrink:0}} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>}
-        </div>
-
-        {/* ─── MEMÓRIA DA DEGUSTAÇÃO ─── (só aparece em vinhos degustados) */}
-        {isDeg && <div style={{marginBottom:32,paddingTop:24,borderTop:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.sepia,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA DA DEGUSTAÇÃO</div>
-          {editing?<>
-            <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:14}}>
-              <textarea value={f.memoryDegustacao||""} onChange={e=>set("memoryDegustacao",e.target.value)} rows={4} placeholder="Onde estava, com quem, o que sentiu..." style={{flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
-              <VoiceButton onResult={txt=>set("memoryDegustacao",(f.memoryDegustacao?f.memoryDegustacao+" ":"")+txt)} />
-            </div>
-            <PhotoUploader photos={f.photosDegustacao||[]} onChange={v=>set("photosDegustacao",v)} max={3} />
-          </>
-          :<>
-            {w.memoryDegustacao?<TextoTruncavel texto={w.memoryDegustacao} fontSize={18} />
-              :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.muted,lineHeight:1.85}}>Toque em editar para registrar este momento.</div>}
-            {w.photosDegustacao?.length>0&&(
-              <div style={{margin:"14px -24px 0",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
-                <div style={{display:"flex",gap:10,padding:"0 24px"}}>
-                  {w.photosDegustacao.map((p,i)=>(
-                    <img key={i} src={cldUrl(p,800)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:200,minWidth:w.photosDegustacao.length===1?"100%":"75%",objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,cursor:"zoom-in",scrollSnapAlign:"start",flexShrink:0,filter:"sepia(15%)"}} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>}
-        </div>}
+        <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14}}>MINHA MEMÓRIA</div>
+        {editing?<div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8}}>
+            <textarea value={f.memory||""} onChange={e=>set("memory",e.target.value)} rows={4} placeholder="Onde estava, com quem, o que sentiu..." style={{flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontStyle:"italic",color:C.text,border:`1px solid ${C.border}`,borderRadius:4,background:C.card,outline:"none",padding:14,resize:"none",lineHeight:1.8,boxSizing:"border-box"}} />
+            <VoiceButton onResult={txt=>set("memory",(f.memory?f.memory+" ":"")+txt)} />
+          </div>
+          :w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontStyle:"italic",color:C.sub,lineHeight:1.85,marginBottom:8}}>"{w.memory}"</div>}
         {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginTop:8,marginBottom:32}}>📍 {w.location}</div>}
 
         {(editing||w.historia)&&<div style={{marginBottom:16,padding:"20px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
@@ -1041,7 +955,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
 
 // ── Add Wine ───────────────────────────────────────────────────────────────────
 const AddWine = ({ onClose, onSave }) => {
-  const [f, setF] = useState({name:"",producer:"",vintage:2024,region:"",country:"África do Sul",grapes:"",style:"Tinto",bottles:1,rating:50,memoryCompra:"",memoryDegustacao:"",location:"",accent:C.goldD,special:false,photosCompra:[],photosDegustacao:[],historia:"",regiao:"",alcohol:"",notas:null,degustacao:false});
+  const [f, setF] = useState({name:"",producer:"",vintage:2024,region:"",country:"África do Sul",grapes:"",style:"Tinto",bottles:1,rating:50,memory:"",location:"",accent:C.goldD,special:false,photos:[],historia:"",regiao:"",alcohol:"",notas:null});
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState({msg:"",ok:false});
   const set = (k,v) => setF(p=>({...p,[k]:v}));
@@ -1069,7 +983,7 @@ const AddWine = ({ onClose, onSave }) => {
         <div style={{width:32,height:2,background:C.border,borderRadius:1,margin:"0 auto 28px"}} />
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:300,color:C.text,marginBottom:4}}>Registrar vinho</div>
         <div style={{fontFamily:"'DM Sans'",fontSize:11,color:C.muted,marginBottom:28}}>Foto + nome + produtor — a IA completa a ficha.</div>
-        <PhotoUploader photos={f.photosCompra} onChange={v=>set("photosCompra",v)} max={3} />
+        <PhotoUploader photos={f.photos} onChange={v=>set("photos",v)} />
 
         {[["Nome do Vinho","name","text","ex: Paul Sauer"],["Produtor","producer","text","ex: Kanonkop"],["Safra","vintage","number",""]].map(([l,k,t,ph])=>(
           <div key={k} style={{marginBottom:18}}>
@@ -1117,10 +1031,10 @@ const AddWine = ({ onClose, onSave }) => {
           <input type="range" min={0} max={100} value={f.rating} onChange={e=>set("rating",+e.target.value)} style={{width:"100%",accentColor:C.goldD}} />
         </div>
         <div style={{marginBottom:18}}>
-          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>MEMÓRIA DA COMPRA</div>
+          <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>MINHA MEMÓRIA</div>
           <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-            <textarea value={f.memoryCompra} onChange={e=>set("memoryCompra",e.target.value)} rows={3} placeholder="Onde comprou, em que viagem, quem indicou..." style={{flex:1,background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",outline:"none",resize:"none",boxSizing:"border-box",lineHeight:1.7}} />
-            <VoiceButton onResult={txt=>set("memoryCompra",(f.memoryCompra?f.memoryCompra+" ":"")+txt)} />
+            <textarea value={f.memory} onChange={e=>set("memory",e.target.value)} rows={3} placeholder="Onde estava, com quem, o que sentiu..." style={{flex:1,background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",outline:"none",resize:"none",boxSizing:"border-box",lineHeight:1.7}} />
+            <VoiceButton onResult={txt=>set("memory",(f.memory?f.memory+" ":"")+txt)} />
           </div>
         </div>
         <div style={{marginBottom:18}}>
@@ -1144,43 +1058,9 @@ const AddWine = ({ onClose, onSave }) => {
   );
 };
 
-// ── Ritual de Baixa: modal ao abrir uma garrafa ──────────────────────────────
-const RitualBaixa = ({ wine, onClose, onConfirmar }) => {
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(13,13,15,0.65)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:C.bg,borderTopLeftRadius:20,borderTopRightRadius:20,width:"100%",maxWidth:430,padding:"32px 24px calc(28px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 32px rgba(0,0,0,0.18)"}}>
-        
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-          <IconeKV nome="adega" cor={C.gold} tamanho={22} />
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,color:C.text,letterSpacing:"0.04em"}}>Garrafa aberta</span>
-        </div>
-        <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:24}}>{wine.name}{wine.vintage?` · ${wine.vintage}`:""}</div>
-
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontStyle:"italic",color:C.sub,marginBottom:32,lineHeight:1.5}}>
-          Você acabou de abrir esta garrafa.<br/>
-          Que momento foi?
-        </div>
-
-        <button onClick={()=>onConfirmar(true)} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"16px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:11,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase",fontWeight:500,marginBottom:10}}>
-          ✦ Editar memória agora
-        </button>
-
-        <button onClick={()=>onConfirmar(false)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"13px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:10,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase",fontWeight:400}}>
-          Editar depois
-        </button>
-
-        <button onClick={onClose} style={{width:"100%",background:"none",border:"none",padding:"14px 12px 0",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.18em",textTransform:"uppercase"}}>
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // ── Tab Adega ──────────────────────────────────────────────────────────────────
 const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   const [detail, setDetail] = useState(null);
-  const [ritualBaixa, setRitualBaixa] = useState(null); // { vinho } quando ativo
   
   // Quando o Mapa pede para abrir um vinho específico, abre direto na ficha
   useEffect(()=>{
@@ -1189,75 +1069,14 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
       if (onAbriu) onAbriu();
     }
   }, [vinhoParaAbrir]);
-  
-  // Iniciar ritual quando usuário toca em "−" e bottles está em 1 (ou diminuir vai abrir uma garrafa)
-  const iniciarBaixa = (vinhoOrigem) => {
-    setRitualBaixa({ vinho: vinhoOrigem });
-  };
-  
-  // Confirmar ritual: cria nova entrada degustada + decrementa estoque
-  const confirmarBaixa = (editarAgora) => {
-    if (!ritualBaixa) return;
-    const v = ritualBaixa.vinho;
-    
-    // Criar nova entrada degustada — clone do vinho com ajustes
-    const novaDegustada = {
-      ...v,
-      id: Date.now() + Math.random(), // novo ID
-      bottles: 0,
-      degustacao: true,
-      vinhoOrigemId: v.id,
-      dataDegustacao: new Date().toISOString(),
-      memoryDegustacao: "", // vazio, para o usuário preencher
-      photosDegustacao: [],
-      // memoryCompra e photosCompra herdados do v
-    };
-    
-    // Decrementar estoque do original
-    const originalAtualizado = {...v, bottles: Math.max(0, v.bottles - 1)};
-    
-    setWines(ws => {
-      const ats = ws.map(w => w.id === v.id ? originalAtualizado : w);
-      return [...ats, novaDegustada];
-    });
-    
-    setRitualBaixa(null);
-    
-    // Se "Editar agora", abrir a ficha da nova memória
-    if (editarAgora) {
-      setTimeout(() => setDetail(novaDegustada), 100);
-    }
-  };
   const [adding, setAdding] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState(null);
   const [search, setSearch] = useState("");
-  const update = u => setWines(ws => {
-    // Identificar o "vinho de origem" (raiz da árvore de degustações)
-    // Se u é uma degustação, a origem é o vinho com id === u.vinhoOrigemId (ou ele mesmo se não houver)
-    // Se u é um vinho original, ele mesmo é a origem
-    const origemId = u.vinhoOrigemId || u.id;
-    
-    // Propagar memoryCompra e photosCompra para o vinho de origem e todas as degustações
-    const memoriaCompra = u.memoryCompra;
-    const fotosCompra = u.photosCompra;
-    
-    return ws.map(w => {
-      if (w.id === u.id) return u; // a própria entrada editada
-      // Sincronizar memoryCompra/photosCompra entre os "irmãos"
-      if (w.id === origemId || w.vinhoOrigemId === origemId) {
-        return {
-          ...w,
-          memoryCompra: memoriaCompra !== undefined ? memoriaCompra : w.memoryCompra,
-          photosCompra: fotosCompra !== undefined ? fotosCompra : w.photosCompra
-        };
-      }
-      return w;
-    });
-  });
+  const update = u => setWines(ws=>ws.map(w=>w.id===u.id?u:w));
 
   const tipos = ["Tinto","Branco","Rose","Espumante","Sobremesa"];
-  const winesAtivos = wines.filter(w=>w.bottles>0 && !w.degustacao);
-  const winesDegustados = wines.filter(w=>w.bottles===0 || w.degustacao);
+  const winesAtivos = wines.filter(w=>w.bottles>0);
+  const winesDegustados = wines.filter(w=>w.bottles===0);
 
   const filtroCasta = winesAtivos.reduce((acc,w)=>{
     const cf=getCastaFiltro(w.grapes);
@@ -1348,12 +1167,12 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
                             <span style={{fontFamily:"'DM Sans'",fontSize:9,color:w.special?C.goldD:"rgba(125,98,56,0.55)",letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:w.special?500:400}}>Especial</span>
                           </button>}
                         </div>
-                        {!isDeg&&<Qty value={w.bottles} onChange={v=>{if(v<w.bottles){iniciarBaixa(w);}else{update({...w,bottles:v});}}} accent={C.goldD} />}
+                        {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={C.goldD} />}
                       </div>
                     </div>
                     {/* Foto pequena à direita (se existir) */}
-                    {(w.photosCompra?.[0]||w.photosDegustacao?.[0]||w.photos?.[0])&&(
-                      <img src={cldUrl(w.photosCompra?.[0]||w.photosDegustacao?.[0]||w.photos?.[0],140)} loading="lazy" style={{width:70,objectFit:"cover",flexShrink:0,filter:isDeg?"sepia(40%)":"none"}} />
+                    {w.photos?.[0]&&(
+                      <img src={cldUrl(w.photos[0],140)} loading="lazy" style={{width:70,objectFit:"cover",flexShrink:0,filter:isDeg?"sepia(40%)":"none"}} />
                     )}
                   </div>
                 );
@@ -1410,7 +1229,6 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
           </>}
         </div>
       )}
-      {ritualBaixa && <RitualBaixa wine={ritualBaixa.vinho} onClose={()=>setRitualBaixa(null)} onConfirmar={confirmarBaixa} />}
     </div>
   );
 };
@@ -1428,9 +1246,7 @@ export default function App() {
   useEffect(()=>{
     loadFromServer().then(data=>{
       if(data){
-        // Migração silenciosa: garante que todos os vinhos têm os novos campos
-        const winesMigrados = (data.wines||[]).map(migrarVinho);
-        setWines(winesMigrados);
+        setWines(data.wines||[]);
       }
       setLoading(false);
     });
