@@ -36,6 +36,17 @@ const uploadToCloudinary = async (file) => {
   return data.secure_url;
 };
 
+// ── Otimização Cloudinary: gera URLs com tamanho/qualidade adequados em runtime
+// Funciona injetando "w_X,q_auto,f_auto/" depois de "/upload/" na URL original.
+// Se a URL não for do Cloudinary, retorna intacta.
+const cldUrl = (url, w=400) => {
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("/upload/")) return url;
+  // Evita re-injetar se já tiver transformações
+  if (url.match(/\/upload\/(?:[wqfgrhdcasezxylpvtbojkmni]_|c_|f_|q_)[^/]+\//)) return url;
+  return url.replace("/upload/", `/upload/w_${w},q_auto,f_auto/`);
+};
+
 const loadFromServer = async () => {
   try { const res = await fetch("/api/save"); if (!res.ok) return null; return await res.json(); }
   catch { return null; }
@@ -178,7 +189,7 @@ const Lightbox = ({ url, onClose }) => {
   return (
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.95)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <button onClick={onClose} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#F2EDE2",fontSize:32,cursor:"pointer"}}>×</button>
-      <img src={url} onClick={e=>e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:4}} />
+      <img src={cldUrl(url,1400)} onClick={e=>e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:4}} />
     </div>
   );
 };
@@ -412,7 +423,22 @@ const TabMemorias = ({ wines }) => {
           <button onClick={()=>setDetail(null)} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.12em",color:C.muted,cursor:"pointer",padding:0}}>← MEMÓRIAS</button>
         </div>
         <div style={{padding:"32px 24px 80px"}}>
-          {w.photos?.[0]&&<img src={w.photos[0]} onClick={()=>setLightbox(w.photos[0])} style={{width:"100%",height:220,objectFit:"cover",borderRadius:8,marginBottom:28,border:`1px solid ${C.border}`,cursor:"zoom-in"}} />}
+          {w.photos?.length>0&&(
+            <div style={{margin:"0 -24px 28px",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory"}}>
+              <div style={{display:"flex",gap:10,padding:"0 24px"}}>
+                {w.photos.map((p,i)=>(
+                  <img key={i} src={cldUrl(p,800)} loading="lazy" onClick={()=>setLightbox(p)} style={{height:240,minWidth:w.photos.length===1?"100%":"75%",objectFit:"cover",borderRadius:8,border:`1px solid ${C.border}`,cursor:"zoom-in",scrollSnapAlign:"start",flexShrink:0}} />
+                ))}
+              </div>
+              {w.photos.length>1&&(
+                <div style={{display:"flex",justifyContent:"center",gap:5,marginTop:10}}>
+                  {w.photos.map((_,i)=>(
+                    <span key={i} style={{width:5,height:5,borderRadius:"50%",background:i===0?C.gold:"rgba(125,98,56,0.25)",display:"inline-block"}} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:8}}>
             <span style={{fontSize:22}}>❤️</span>
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:52,fontWeight:300,color:C.goldD,lineHeight:1}}>{w.rating}</span>
@@ -455,7 +481,7 @@ const TabMemorias = ({ wines }) => {
               {w.memory&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,fontStyle:"italic",color:C.sub,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{w.memory}"</div>}
               {w.location&&<div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,marginTop:6}}>📍 {w.location}</div>}
             </div>
-            {w.photos?.[0]&&<img src={w.photos[0]} style={{width:64,objectFit:"cover",flexShrink:0}} />}
+            {w.photos?.[0]&&<img src={cldUrl(w.photos[0],128)} loading="lazy" style={{width:64,objectFit:"cover",flexShrink:0}} />}
           </div>
         ))}
       </div>
@@ -464,7 +490,7 @@ const TabMemorias = ({ wines }) => {
 };
 
 // ── Photo Uploader ─────────────────────────────────────────────────────────────
-const PhotoUploader = ({ photos, onChange, max=2 }) => {
+const PhotoUploader = ({ photos, onChange, max=5 }) => {
   const ref = useRef();
   const [busy, setBusy] = useState(false);
   const handle = async e => {
@@ -476,11 +502,11 @@ const PhotoUploader = ({ photos, onChange, max=2 }) => {
   };
   return (
     <div style={{marginBottom:24}}>
-      <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10}}>FOTOS DO RÓTULO</div>
+      <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:10}}>FOTOS</div>
       <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
         {photos.map((url,i)=>(
           <div key={i} style={{position:"relative"}}>
-            <img src={url} style={{width:88,height:118,objectFit:"cover",borderRadius:4,border:`1px solid ${C.border}`}} />
+            <img src={cldUrl(url,180)} loading="lazy" style={{width:88,height:118,objectFit:"cover",borderRadius:4,border:`1px solid ${C.border}`}} />
             <button onClick={()=>onChange(photos.filter((_,j)=>j!==i))} style={{position:"absolute",top:-8,right:-8,width:22,height:22,borderRadius:"50%",background:C.wine,border:`2px solid ${C.bg}`,color:"#fff",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
         ))}
@@ -837,7 +863,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
         {editing?<PhotoUploader photos={f.photos||[]} onChange={v=>set("photos",v)} />
           :f.photos?.length>0&&(
             <div style={{display:"flex",gap:12,marginBottom:32}}>
-              {f.photos.map((url,i)=><img key={i} src={url} onClick={()=>setLightbox(url)} style={{width:128,height:170,objectFit:"cover",borderRadius:6,border:`1px solid ${C.border}`,filter:isDeg?"sepia(40%)":"none",cursor:"zoom-in"}} />)}
+              {f.photos.map((url,i)=><img key={i} src={cldUrl(url,260)} loading="lazy" onClick={()=>setLightbox(url)} style={{width:128,height:170,objectFit:"cover",borderRadius:6,border:`1px solid ${C.border}`,filter:isDeg?"sepia(40%)":"none",cursor:"zoom-in"}} />)}
             </div>
           )
         }
@@ -1146,7 +1172,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
                     </div>
                     {/* Foto pequena à direita (se existir) */}
                     {w.photos?.[0]&&(
-                      <img src={w.photos[0]} style={{width:70,objectFit:"cover",flexShrink:0,filter:isDeg?"sepia(40%)":"none"}} />
+                      <img src={cldUrl(w.photos[0],140)} loading="lazy" style={{width:70,objectFit:"cover",flexShrink:0,filter:isDeg?"sepia(40%)":"none"}} />
                     )}
                   </div>
                 );
