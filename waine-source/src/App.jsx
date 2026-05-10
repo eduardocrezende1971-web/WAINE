@@ -1072,7 +1072,9 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   const [adding, setAdding] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState(null);
   const [search, setSearch] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(null); // wine a confirmar exclusão
   const update = u => setWines(ws=>ws.map(w=>w.id===u.id?u:w));
+  const handleDelete = (id) => { setWines(ws=>ws.filter(w=>w.id!==id)); setConfirmDelete(null); };
 
   const tipos = ["Tinto","Branco","Rose","Espumante","Sobremesa"];
   const winesAtivos = wines.filter(w=>w.bottles>0);
@@ -1109,6 +1111,45 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   return (
     <div style={{flex:1,overflowY:"auto",paddingBottom:90}}>
       {adding&&<AddWine onClose={()=>setAdding(false)} onSave={w=>{setWines(p=>[...p,w]);setAdding(false);}} />}
+
+      {/* Modal de confirmação de exclusão */}
+      {confirmDelete&&(
+        <div onClick={()=>setConfirmDelete(null)} style={{position:"fixed",inset:0,background:"rgba(13,13,15,0.65)",zIndex:150,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.bg,borderRadius:14,maxWidth:380,width:"100%",padding:"32px 28px 24px",boxShadow:"0 12px 48px rgba(0,0,0,0.3)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:18}}>
+              <div style={{width:44,height:44,borderRadius:"50%",background:C.wineL,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.wine} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              </div>
+            </div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,color:C.text,textAlign:"center",marginBottom:10,lineHeight:1.2}}>
+              Remover este vinho?
+            </div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontStyle:"italic",color:C.muted,textAlign:"center",marginBottom:6,lineHeight:1.4}}>
+              {confirmDelete.name}
+            </div>
+            <div style={{fontFamily:"'DM Sans'",fontSize:10,color:C.muted,letterSpacing:"0.12em",textTransform:"uppercase",textAlign:"center",marginBottom:24}}>
+              {confirmDelete.producer} · {confirmDelete.vintage}
+            </div>
+            {confirmDelete.memory&&(
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:13,fontStyle:"italic",color:C.sub,textAlign:"center",padding:"12px 14px",background:C.card2,borderRadius:6,marginBottom:24,lineHeight:1.5}}>
+                Esta ação removerá também a memória registrada.
+              </div>
+            )}
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setConfirmDelete(null)} style={{flex:1,padding:"13px",background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer"}}>
+                Cancelar
+              </button>
+              <button onClick={()=>handleDelete(confirmDelete.id)} style={{flex:1,padding:"13px",background:C.wine,border:"none",borderRadius:6,color:"#FFFFFF",fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",fontWeight:500}}>
+                Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{padding:"32px 24px 0"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
@@ -1167,7 +1208,32 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
                             <span style={{fontFamily:"'DM Sans'",fontSize:9,color:w.special?C.goldD:"rgba(125,98,56,0.55)",letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:w.special?500:400}}>Especial</span>
                           </button>}
                         </div>
-                        {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={C.goldD} />}
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          {!isDeg&&<Qty value={w.bottles} onChange={v=>update({...w,bottles:v})} accent={C.goldD} />}
+                          <button
+                            onClick={(e)=>{e.stopPropagation();setConfirmDelete(w);}}
+                            aria-label="Remover vinho"
+                            style={{
+                              width:36,height:36,borderRadius:6,
+                              background:"none",
+                              border:`1px solid ${isDeg?"rgba(122,92,58,0.25)":C.border}`,
+                              cursor:"pointer",
+                              display:"flex",alignItems:"center",justifyContent:"center",
+                              flexShrink:0,
+                              transition:"all 0.2s ease",
+                            }}
+                            onMouseEnter={(e)=>{e.currentTarget.style.background=C.wineL;e.currentTarget.style.borderColor=C.wine;}}
+                            onMouseLeave={(e)=>{e.currentTarget.style.background="none";e.currentTarget.style.borderColor=isDeg?"rgba(122,92,58,0.25)":C.border;}}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={isDeg?C.sepia:C.muted} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 6h18" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <line x1="10" y1="11" x2="10" y2="17" />
+                              <line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {/* Foto pequena à direita (se existir) */}
