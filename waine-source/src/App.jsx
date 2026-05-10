@@ -854,6 +854,23 @@ const WineDetail = ({ w, onBack, onUpdate, onDelete }) => {
   const [lightbox, setLightbox] = useState(null);
   const [completando, setCompletando] = useState(false);
   const [sommelierAberto, setSommelierAberto] = useState(false);
+  const refMemoriaDegustacao = useRef(null);
+  
+  // Auto-ativa modo edição quando vem do Ritual ("Editar memória agora")
+  useEffect(() => {
+    if (abrirEditando) {
+      setEditing(true);
+      // Aguarda render do textarea de degustação e dá scroll + focus
+      setTimeout(() => {
+        if (refMemoriaDegustacao.current) {
+          refMemoriaDegustacao.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Focus no textarea dentro da seção
+          const textarea = refMemoriaDegustacao.current.querySelector("textarea");
+          if (textarea) textarea.focus();
+        }
+      }, 350);
+    }
+  }, [abrirEditando]);
 
   // Verifica se a ficha está incompleta (falta produtor, região ou notas)
   const fichaIncompleta = !w.historia || !w.regiao || !w.notas || (typeof w.notas==="object" && !Object.values(w.notas||{}).some(v=>v));
@@ -897,9 +914,23 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
       <div style={{position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"16px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10}}>
         <button onClick={onBack} style={{background:"none",border:"none",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.12em",color:C.muted,cursor:"pointer",padding:0}}>← ADEGA</button>
         {editing && <button onClick={save} style={{background:C.goldD,border:`1px solid ${C.goldD}`,borderRadius:4,padding:"7px 18px",fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.1em",color:"#fff",cursor:"pointer"}}>SALVAR</button>}
-        {!editing&&<button onClick={()=>{if(window.confirm("Remover este vinho?"))onDelete(w.id);}} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:4,padding:"7px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.muted,cursor:"pointer"}}>🗑</button>}
+        {!editing&&<button onClick={()=>{const msg=isDeg?"Apagar esta memória?\n\nEsta degustação será removida permanentemente.":"Remover este vinho da adega?";if(window.confirm(msg))onDelete(w.id);}} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:4,padding:"7px 14px",fontFamily:"'DM Sans'",fontSize:11,color:C.muted,cursor:"pointer"}}>🗑</button>}
       </div>
       <div style={{padding:"32px 24px 100px"}}>
+
+        {/* AÇÕES NO TOPO — Pergunte ao Sommelier + Editar Ficha (modo visualização) */}
+        {!editing && (
+          <div style={{marginBottom:28,display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>setSommelierAberto(true)} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"18px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              <span style={{color:"#FFFFFF",fontSize:14,opacity:0.95}}>✦</span>
+              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase"}}>Pergunte ao sommelier</span>
+            </button>
+            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase"}}>Editar ficha</span>
+            </button>
+          </div>
+        )}
+
         {!editing&&fichaIncompleta&&(
           <button onClick={completarFicha} disabled={completando} style={{width:"100%",padding:"12px 14px",marginBottom:20,background:C.goldL,border:`1px solid ${C.gold}`,borderRadius:6,color:C.goldD,fontFamily:"'DM Sans'",fontSize:10,letterSpacing:"0.14em",textTransform:"uppercase",cursor:completando?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:completando?0.6:1}}>
             <span>✦</span><span>{completando?"Completando...":"Completar ficha com IA"}</span>
@@ -969,7 +1000,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
         </div>
 
         {/* ─── MEMÓRIA DA DEGUSTAÇÃO ─── (só aparece em vinhos degustados) */}
-        {isDeg && <div style={{marginBottom:32,paddingTop:24,borderTop:`1px solid ${C.border}`}}>
+        {isDeg && <div ref={refMemoriaDegustacao} style={{marginBottom:32,paddingTop:24,borderTop:`1px solid ${C.border}`,scrollMarginTop:80}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.sepia,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:14}}>MEMÓRIA DA DEGUSTAÇÃO</div>
           {editing?<>
             <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:14}}>
@@ -1019,18 +1050,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
             :<NotasTopicos notas={w.notas} />}
         </div>}
 
-        {/* AÇÕES NO RODAPÉ — Pergunte ao Sommelier + Editar Ficha (modo visualização) */}
-        {!editing && (
-          <div style={{marginTop:32,paddingTop:24,borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:10}}>
-            <button onClick={()=>setSommelierAberto(true)} style={{width:"100%",background:C.gold,border:"none",borderRadius:8,padding:"18px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-              <span style={{color:"#FFFFFF",fontSize:14,opacity:0.95}}>✦</span>
-              <span style={{fontFamily:"'DM Sans'",fontSize:11,fontWeight:300,color:"#FFFFFF",letterSpacing:"0.22em",textTransform:"uppercase"}}>Pergunte ao sommelier</span>
-            </button>
-            <button onClick={()=>setEditing(true)} style={{width:"100%",background:"transparent",border:`1px solid rgba(201,164,110,0.6)`,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-              <span style={{fontFamily:"'DM Sans'",fontSize:10,fontWeight:300,color:C.goldD,letterSpacing:"0.22em",textTransform:"uppercase"}}>Editar ficha</span>
-            </button>
-          </div>
-        )}
+
       </div>
 
       {/* Modal Sommelier */}
@@ -1225,7 +1245,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
     
     // Se "Editar agora", abrir a ficha da nova memória
     if (editarAgora) {
-      setTimeout(() => setDetail(novaDegustada), 100);
+      setTimeout(() => setDetail({...novaDegustada, _abrirEditando: true}), 100);
     }
   };
   const [adding, setAdding] = useState(false);
@@ -1284,7 +1304,7 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
   const contaPais = p => winesAtivos.filter(w=>w.country===p).length;
 
   if(detail){const live=wines.find(w=>w.id===detail.id)||detail;
-    return <WineDetail w={live} onBack={()=>setDetail(null)} onUpdate={update} onDelete={id=>{setWines(ws=>ws.filter(w=>w.id!==id));setDetail(null);}}/>;
+    return <WineDetail w={live} abrirEditando={detail._abrirEditando} onBack={()=>setDetail(null)} onUpdate={update} onDelete={id=>{setWines(ws=>ws.filter(w=>w.id!==id));setDetail(null);}}/>;
   }
 
   return (
@@ -1348,7 +1368,17 @@ const TabAdega = ({ wines, setWines, vinhoParaAbrir, onAbriu }) => {
                             <span style={{fontFamily:"'DM Sans'",fontSize:9,color:w.special?C.goldD:"rgba(125,98,56,0.55)",letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:w.special?500:400}}>Especial</span>
                           </button>}
                         </div>
-                        {!isDeg&&<Qty value={w.bottles} onChange={v=>{if(v<w.bottles){iniciarBaixa(w);}else{update({...w,bottles:v});}}} accent={C.goldD} />}
+                        {!isDeg&&(
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+                            <div style={{display:"flex",alignItems:"baseline",gap:6}}>
+                              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:300,color:C.goldD,lineHeight:1}}>{w.bottles}</span>
+                              <span style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.06em"}}>{w.bottles===1?"garrafa":"garrafas"}</span>
+                            </div>
+                            <button onClick={(e)=>{e.stopPropagation();iniciarBaixa(w);}} style={{background:"none",border:`1px solid ${C.gold}`,borderRadius:4,padding:"6px 11px",cursor:"pointer",fontFamily:"'DM Sans'",fontSize:9,color:C.goldD,letterSpacing:"0.18em",textTransform:"uppercase",fontWeight:500,whiteSpace:"nowrap"}}>
+                              ✓ Abri 1
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {/* Foto pequena à direita (se existir) */}
