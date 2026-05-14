@@ -110,16 +110,15 @@ const distancia = (a, b) => {
   }
   return m[b.length][a.length];
 };
-// ── Helper: parsear input numérico com limites (corrige bug do "zero preso") ─
-// Aceita string vazia (enquanto digita), respeita min/max, descarta lixo.
-const parseNum = (texto, min, max) => {
+// ── Helper: parsear input numérico aceitando string vazia + limite máximo de caracteres ─
+// Aceita vazio (enquanto digita), respeita só o máximo de dígitos (não força mínimo na hora)
+const parseNum = (texto, maxValue, maxDigitos) => {
   if (texto === "" || texto === null || texto === undefined) return "";
-  const limpo = String(texto).replace(/[^\d]/g,"");
+  const limpo = String(texto).replace(/[^\d]/g,"").slice(0, maxDigitos);
   if (limpo === "") return "";
   let n = parseInt(limpo, 10);
   if (isNaN(n)) return "";
-  if (n > max) n = max;
-  if (n < min) n = min;
+  if (n > maxValue) n = maxValue;
   return n;
 };
 const normalizarPais = (input) => {
@@ -1167,7 +1166,7 @@ Retorne APENAS JSON com campos alterados: { "region","country","grapes","style",
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <span style={{fontSize:26}}>❤️</span>
-              {editing?<input type="number" min={0} max={100} value={f.rating} onChange={e=>set("rating",parseNum(e.target.value,0,100))} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:accent,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
+              {editing?<input type="number" min={0} max={100} value={f.rating} onChange={e=>set("rating",parseNum(e.target.value,100,3))} style={{width:72,fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:300,color:accent,border:"none",borderBottom:`1px solid ${C.border}`,background:"none",outline:"none"}} />
                 :<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:64,color:accent,fontWeight:300,lineHeight:1}}>{w.rating}</div>}
             </div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:13,fontStyle:"italic",color:C.muted,paddingLeft:40,marginTop:-2}}>Nota da experiência</div>
@@ -1327,7 +1326,7 @@ const AddWine = ({ onClose, onSave }) => {
         {[["Nome do Vinho","name","text","ex: Paul Sauer"],["Produtor","producer","text","ex: Kanonkop"],["Safra","vintage","number",""]].map(([l,k,t,ph])=>(
           <div key={k} style={{marginBottom:18}}>
             <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>{l}</div>
-            <input type={t} value={f[k]} placeholder={ph} onChange={e=>set(k,t==="number"?parseNum(e.target.value,1900,2100):e.target.value)} style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
+            <input type={t} value={f[k]} placeholder={ph} onChange={e=>set(k,t==="number"?parseNum(e.target.value,2100,4):e.target.value)} style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
           </div>
         ))}
 
