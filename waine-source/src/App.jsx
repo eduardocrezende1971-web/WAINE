@@ -56,6 +56,87 @@ const saveToServer = async (data) => {
   catch {}
 };
 
+// ── Normalização inteligente de país ─────────────────────────────────────────
+const PAISES_CANONICOS = {
+  "África do Sul": ["africa do sul","south africa","rsa","sa","áfrica do sul"],
+  "Argentina": ["argentina","argentine"],
+  "Austrália": ["australia","austrália","aus"],
+  "Áustria": ["austria","áustria","at"],
+  "Brasil": ["brasil","brazil","br"],
+  "Chile": ["chile","cl"],
+  "Espanha": ["espanha","spain","españa","es"],
+  "Estados Unidos": ["estados unidos","estados unidos da america","estados unidos da américa","usa","eua","united states","united states of america","us","america"],
+  "França": ["franca","frança","france","fr"],
+  "Alemanha": ["alemanha","germany","deutschland","de"],
+  "Grécia": ["grecia","grécia","greece","gr"],
+  "Hungria": ["hungria","hungary","hu"],
+  "Itália": ["italia","itália","italy","it"],
+  "Nova Zelândia": ["nova zelandia","nova zelândia","new zealand","nz"],
+  "Portugal": ["portugal","pt"],
+  "Uruguai": ["uruguai","uruguay","uy"],
+  "Reino Unido": ["reino unido","inglaterra","england","uk","united kingdom","gb"],
+  "Geórgia": ["georgia","geórgia","ge"],
+  "Líbano": ["libano","líbano","lebanon"],
+  "Israel": ["israel","il"],
+  "Eslovênia": ["eslovenia","eslovênia","slovenia"],
+  "Croácia": ["croacia","croácia","croatia"],
+  "Romênia": ["romenia","romênia","romania"],
+  "Bulgária": ["bulgaria","bulgária"],
+  "México": ["mexico","méxico"],
+  "Canadá": ["canada","canadá"],
+  "Japão": ["japao","japão","japan"],
+  "China": ["china","cn"],
+  "Suíça": ["suica","suíça","switzerland"],
+  "Marrocos": ["marrocos","morocco"],
+};
+
+const limparTexto = (s) => {
+  if (!s || typeof s !== "string") return "";
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim().toLowerCase();
+};
+
+const distancia = (a, b) => {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const m = [];
+  for (let i = 0; i <= b.length; i++) m[i] = [i];
+  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i-1) === a.charAt(j-1)) m[i][j] = m[i-1][j-1];
+      else m[i][j] = Math.min(m[i-1][j-1]+1, m[i][j-1]+1, m[i-1][j]+1);
+    }
+  }
+  return m[b.length][a.length];
+};
+
+const normalizarPais = (input) => {
+  if (!input || typeof input !== "string") return input;
+  const original = input.trim();
+  if (!original) return original;
+  const limpo = limparTexto(original);
+  for (const [canonico, variacoes] of Object.entries(PAISES_CANONICOS)) {
+    if (limparTexto(canonico) === limpo) return canonico;
+    if (variacoes.some(v => limparTexto(v) === limpo)) return canonico;
+  }
+  let melhor = null;
+  let menorDist = Infinity;
+  for (const [canonico, variacoes] of Object.entries(PAISES_CANONICOS)) {
+    const candidatos = [canonico, ...variacoes].map(limparTexto);
+    for (const c of candidatos) {
+      const d = distancia(limpo, c);
+      const tolerancia = Math.min(3, Math.max(1, Math.floor(c.length * 0.15)));
+      if (d <= tolerancia && d < menorDist) {
+        menorDist = d;
+        melhor = canonico;
+      }
+    }
+  }
+  if (melhor) return melhor;
+  return original.normalize("NFC").charAt(0).toUpperCase() + original.normalize("NFC").slice(1);
+};
+
 // ── Migração de dados antigos → novo modelo ──────────────────────────────────
 // Modelo antigo: 'memory' único + 'photos' único (servia compra OU degustação)
 // Modelo novo:
@@ -67,11 +148,14 @@ const saveToServer = async (data) => {
 //   - bottles = 0 (já degustado): vira ficha-filha; memory antigo → degustacaoTexto
 //     (compra fica vazia pois não temos como saber retroativamente onde foi comprado)
 const migrateWine = (w) => {
-  if (w.isChild !== undefined) return w; // já migrado
+  if (w.isChild !== undefined) {
+    return { ...w, country: normalizarPais(w.country) };
+  }
   const memoryAntiga = w.memory || "";
   const photosAntigas = w.photos || [];
   const locationAntiga = w.location || "";
   const dateAntiga = w.date || "";
+  w = { ...w, country: normalizarPais(w.country) };
 
   if (w.bottles === 0) {
     // Vinho já degustado no modelo antigo → vira ficha-filha
@@ -1293,7 +1377,7 @@ const AddWine = ({ onClose, onSave }) => {
         </div>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:14,background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",cursor:"pointer"}}>CANCELAR</button>
-          <button onClick={()=>{if(!f.name)return;onSave({...f,id:Date.now(),isChild:false,parentId:null,compraDate:new Date().toLocaleDateString("pt-BR",{month:"short",year:"numeric"}),degustacaoTexto:"",degustacaoFotos:[],degustacaoLocation:"",degustacaoDate:"",degustacaoRating:0});}} style={{flex:2,padding:14,background:C.goldD,border:"none",borderRadius:6,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontWeight:500}}>
+          <button onClick={()=>{if(!f.name)return;onSave({...f,country:normalizarPais(f.country),id:Date.now(),isChild:false,parentId:null,compraDate:new Date().toLocaleDateString("pt-BR",{month:"short",year:"numeric"}),degustacaoTexto:"",degustacaoFotos:[],degustacaoLocation:"",degustacaoDate:"",degustacaoRating:0});}} style={{flex:2,padding:14,background:C.goldD,border:"none",borderRadius:6,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontWeight:500}}>
             ADICIONAR À ADEGA
           </button>
         </div>
