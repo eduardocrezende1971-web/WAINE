@@ -896,14 +896,27 @@ const NotasTopicos = ({ notas }) => {
 const VoiceButton = ({ onResult }) => {
   const [ouvindo, setOuvindo] = useState(false);
   const recRef = useRef(null);
+  const finalAcumuladoRef = useRef("");
   const toggle = () => {
     const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
     if (!SR) return;
     if (ouvindo) { recRef.current?.stop(); setOuvindo(false); return; }
     const rec = new SR();
-    rec.lang="pt-BR"; rec.interimResults=false; rec.maxAlternatives=1;
-    rec.onresult=e=>{onResult(e.results[0][0].transcript);setOuvindo(false);};
-    rec.onerror=()=>setOuvindo(false); rec.onend=()=>setOuvindo(false);
+    rec.lang="pt-BR"; rec.interimResults=true; rec.maxAlternatives=1;
+    const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+    rec.continuous = !isIOS;
+    rec.onresult = (e) => {
+      let interim = "";
+      let finalNovo = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const txt = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalNovo += txt;
+        else interim += txt;
+      }
+      if (finalNovo) finalAcumuladoRef.current += finalNovo;
+    };
+    rec.onerror = (ev) => { if (ev.error !== "no-speech" && ev.error !== "aborted") setOuvindo(false); };
+    rec.onend = () => { const t = (finalAcumuladoRef.current||"").trim(); if (t) onResult(t); finalAcumuladoRef.current = ""; setOuvindo(false); };
     recRef.current=rec; rec.start(); setOuvindo(true);
   };
   return (
