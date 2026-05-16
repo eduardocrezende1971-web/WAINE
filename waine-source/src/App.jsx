@@ -1399,7 +1399,7 @@ Retorne APENAS JSON:
         </div>
         <div style={{marginBottom:18}}>
           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>LOCAL DA COMPRA</div>
-          <input value={f.compraLocation} onChange={e=>set("compraLocation",e.target.value)} placeholder="ex: Kanonkop, Stellenbosch" style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
+          <input value={f.compraLocation} onChange={e=>set("compraLocation",e.target.value)} placeholder="ex: Kanonkop, Stellenbosch" style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />         </div>         <div style={{marginBottom:18}}>           <div style={{fontFamily:"'DM Sans'",fontSize:9,color:C.muted,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>DATA DA COMPRA <span style={{textTransform:"none",letterSpacing:"normal",fontSize:10,opacity:0.7}}>(opcional)</span></div>           <input value={f.compraDate} onChange={e=>set("compraDate",e.target.value)} placeholder="ex: mai/2024, ou 15/03/2018" style={{width:"100%",background:C.card2,border:`1px solid ${C.border}`,borderRadius:4,padding:"12px 14px",color:C.text,fontFamily:"'DM Sans'",fontSize:14,outline:"none",boxSizing:"border-box"}} />
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:28,cursor:"pointer"}} onClick={()=>set("special",!f.special)}>
           <div style={{width:22,height:22,border:`1px solid ${f.special?C.goldD:C.border}`,borderRadius:3,background:f.special?C.goldL:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -1409,7 +1409,7 @@ Retorne APENAS JSON:
         </div>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:14,background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.muted,fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",cursor:"pointer"}}>CANCELAR</button>
-          <button onClick={()=>{if(!f.name)return;onSave({...f,country:normalizarPais(f.country),id:Date.now(),isChild:false,parentId:null,compraDate:new Date().toLocaleDateString("pt-BR",{month:"short",year:"numeric"}),degustacaoTexto:"",degustacaoFotos:[],degustacaoLocation:"",degustacaoDate:"",degustacaoRating:0});}} style={{flex:2,padding:14,background:C.goldD,border:"none",borderRadius:6,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontWeight:500}}>
+          <button onClick={()=>{if(!f.name)return;onSave({...f,country:normalizarPais(f.country),id:Date.now(),isChild:false,parentId:null,compraDate:f.compraDate,degustacaoTexto:"",degustacaoFotos:[],degustacaoLocation:"",degustacaoDate:"",degustacaoRating:0});}} style={{flex:2,padding:14,background:C.goldD,border:"none",borderRadius:6,color:"#fff",fontFamily:"'DM Sans'",fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",fontWeight:500}}>
             ADICIONAR À ADEGA
           </button>
         </div>
