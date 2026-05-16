@@ -1311,20 +1311,58 @@ const AddWine = ({ onClose, onSave }) => {
   const [status, setStatus] = useState({msg:"",ok:false});
   const set = (k,v) => setF(p=>({...p,[k]:v}));
 
-  const enrich = async () => {
+const enrich = async (tentativa = 1) => {
     if(!f.name||!f.producer) return;
     setBusy(true); setStatus({msg:"Pesquisando vinho e produtor...",ok:false});
+
+    const promptPermissivo = `Você é um sommelier especialista, honesto e rigoroso. Vinho "${f.name}", produtor "${f.producer}", safra ${f.vintage}.
+
+REGRAS CRÍTICAS DE HONESTIDADE:
+- NÃO use adjetivos vagos como "renomada", "respeitada", "premiada", "tradicional", "referência", "conceituada" a menos que tenha certeza absoluta.
+- NÃO invente prêmios, reconhecimentos, histórias familiares ou fundadores.
+- Quando souber pouco sobre o produtor, escreva pouco. Brevidade honesta é melhor que floreio inventado.
+- Prefira fatos concretos verificáveis (localização exata, ano de fundação, donos, estilo de vinificação) a generalizações.
+
+Retorne APENAS JSON:
+{ "region":"região vinícola", "country":"país em português", "grapes":"uvas", "style":"Tinto|Branco|Rose|Espumante|Sobremesa", "alcohol":"número ex:14.5", "historia":"3-4 frases sofisticadas sobre o produtor — apenas fatos verificáveis", "regiao":"4-5 frases sobre terroir, clima, topografia, ventos, mar/montanhas", "notas":{"aromas":"","paladar":"","estrutura":"","guarda":"","harmonizacao":""} }`;
+
+    const promptRigoroso = `Você é um sommelier especialista, honesto e rigoroso. Vinho "${f.name}", produtor "${f.producer}", safra ${f.vintage}.
+
+REGRAS ABSOLUTAS:
+- Se você NÃO tem informações confiáveis e verificáveis sobre este produtor ou vinho específico, retorne EXATAMENTE: {"erro":"Sem informações confiáveis sobre este rótulo"}
+- NÃO invente nada. Não use floreios. Não generalize sobre a região para preencher campos sobre o produtor.
+- Só preencha campos que você consegue afirmar com certeza factual.
+
+Se tiver informações confiáveis, retorne APENAS JSON:
+{ "region":"região vinícola", "country":"país em português", "grapes":"uvas", "style":"Tinto|Branco|Rose|Espumante|Sobremesa", "alcohol":"número ex:14.5", "historia":"apenas fatos verificáveis, em 2-4 frases", "regiao":"terroir e geografia, 3-5 frases", "notas":{"aromas":"","paladar":"","estrutura":"","guarda":"","harmonizacao":""} }`;
+
     try {
       const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,
-          messages:[{role:"user",content:`Sommelier especialista. Vinho "${f.name}", produtor "${f.producer}", safra ${f.vintage}. Retorne APENAS JSON:
-{ "region":"região vinícola", "country":"país em português", "grapes":"uvas", "style":"Tinto|Branco|Rose|Espumante|Sobremesa", "alcohol":"número ex:14.5", "historia":"3-4 frases sofisticadas sobre o produtor", "regiao":"4-5 frases sobre terroir, clima, topografia, ventos, mar/montanhas", "notas":{"aromas":"","paladar":"","estrutura":"","guarda":"","harmonizacao":""} }`}]})});
+          messages:[{role:"user",content: tentativa===1 ? promptPermissivo : promptRigoroso}]})});
       const d = await res.json();
-      if(d.error){setStatus({msg:"Erro",ok:false});setBusy(false);return;}
+      if(d.error) throw new Error("API error");
       const parsed = JSON.parse(d.content[0].text.replace(/```json|```/g,"").trim());
+
+      if(parsed.erro){
+        if(tentativa===1){
+          setBusy(false);
+          return enrich(2);
+        }
+        setStatus({msg:"Sem informações confiáveis sobre este rótulo. Preencha manualmente.",ok:false});
+        setBusy(false);
+        return;
+      }
+
       setF(p=>({...p,...parsed}));
       setStatus({msg:"Ficha completa. Adicione sua memória.",ok:true});
-    } catch(e){setStatus({msg:"Erro: "+(e.message||""),ok:false});}
+    } catch(e){
+      if(tentativa===1){
+        setBusy(false);
+        return enrich(2);
+      }
+      setStatus({msg:"Não foi possível pesquisar este vinho. Preencha manualmente.",ok:false});
+    }
     setBusy(false);
   };
 
